@@ -1,0 +1,122 @@
+name: tagged release
+on:
+  push:
+    tags: ['v[0-9]*']
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+jobs:
+  verify:
+    name: Verify tag and existing native CI
+    runs-on: ubuntu-22.04
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Require a version tag on tested main history
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          test "$GITHUB_REF_TYPE" = tag
+          python3 scripts/release.py validate --tag "$GITHUB_REF_NAME"
+          git merge-base --is-ancestor "$GITHUB_SHA" origin/main
+          gh run list --repo "$GITHUB_REPOSITORY" --workflow ci.yml \
+            --commit "$GITHUB_SHA" --branch main --event push --limit 20 \
+            --json conclusion --jq 'any(.[]; .conclusion == "success")' > "$RUNNER_TEMP/ci-passed"
+          test "$(cat "$RUNNER_TEMP/ci-passed")" = true
+  build:
+    name: Build and smoke ${{ matrix.target }}
+    needs: verify
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-22.04
+            target: x86_64-unknown-linux-gnu
+            rustflags: ''
+          - os: macos-15
+            target: aarch64-apple-darwin
+            rustflags: ''
+          - os: macos-15-intel
+            target: x86_64-apple-darwin
+            rustflags: ''
+          - os: windows-2022
+            target: x86_64-pc-windows-msvc
+            rustflags: '-C target-feature=+crt-static'
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    env:
+      TARGET: ${{ matrix.target }}
+      RUSTFLAGS: ${{ matrix.rustflags }}
+      MACOSX_DEPLOYMENT_TARGET: '13.0'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: release
+          key: ${{ matrix.target }}
+      - name: Build only the application
+        run: cargo build --release --locked --bin friendo --target "$TARGET"
+      - name: Package and run the extracted binary
+        run: python3 scripts/release.py package --tag "$GITHUB_REF_NAME" --target "$TARGET"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: release-${{ matrix.target }}
+          path: target/release-assets/*
+          if-no-files-found: error
+          retention-days: 7
+  publish:
+    name: Verify complete asset set and publish
+    needs: build
+    runs-on: ubuntu-22.04
+    timeout-minutes: 10
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: release-*
+          path: target/release-assets
+          merge-multiple: true
+      - name: Verify all archives, source identity, and checksums
+        run: python3 scripts/release.py finalize --tag "$GITHUB_REF_NAME"
+      - name: Stage complete release and publish
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" \
+            --verify-tag --draft --title "friendo $GITHUB_REF_NAME" \
+            --notes-file "docs/releases/$GITHUB_REF_NAME.md" \
+            target/release-assets/*.tar.gz target/release-assets/*.zip \
+            target/release-assets/SHA256SUMS
+          gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false --latest

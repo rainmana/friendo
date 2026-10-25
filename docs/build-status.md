@@ -25,6 +25,8 @@ Local host: **macOS / aarch64**, Rust **1.98.1**, Cargo **1.98.1**. Hosted nativ
 | cargo clippy --all-targets --locked -- -D warnings | Passed |
 | cargo test --all-targets --locked | **65 passed**: 20 unit, 7 configuration, 5 CLI, 18 native process, 10 provider, 5 integrated runtime |
 | cargo test --doc --locked | Passed; no doctest examples currently defined |
+| Release publication guards | 7 passed: complete/missing/unexpected asset sets, checksum/payload/source rejection, executable mode, tag/version agreement; archive fixtures use harmless stand-in bytes |
+| Local optimized release package | macOS/aarch64 application-only build passed; extracted binary version, offline NORMAL doctor, synthetic repair demo, and byte-preserving replay passed |
 | demo --headless, doctor, runs, replay --headless --at, replay --context | Executed successfully |
 | friendo exec echo -- 'hello from friendo' | Real native invocation, exit 0; stdout/stderr retained; group absence observed |
 | Native interactive TUI | Guided reveal/correction/Rewire/repair, YOLO, history, inspectors/help, quit exercised |
@@ -74,6 +76,8 @@ This is a narrow first usable version. It is not production-readiness evidence.
 - Review is implemented. Disk resume/rerun/fork, snapshot/rollback, process migration, distributed swarms, marketplace, discovery, and exactly-once external execution are unavailable.
 
 ## Next bounded milestone
+
+Tagged binary publication is defined by `.github/workflows/release.yml`: reuse passing native CI for the exact main-history tag, build only the application on four native targets, verify the extracted binaries and complete checksum set, then publish a staged release. [Release instructions](releases.md) record targets, OS baselines, contents, and maintenance commands. Release build execution is recorded by the corresponding GitHub Actions run; workflow configuration alone is not evidence of a published release.
 
 Add an isolated PTY component and verify one persistent r2/debugger workflow without expanding execution authority. The bounded live Anthropic verification and three-platform native CI checks are complete.
 

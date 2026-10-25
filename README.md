@@ -8,6 +8,8 @@ This first slice includes a credential-free guided demo, OpenAI-compatible and n
 
 ## Build and start
 
+Prebuilt Linux, macOS (Apple Silicon/Intel), and Windows downloads are published on [GitHub Releases](https://github.com/rainmana/friendo/releases). See [release instructions](docs/releases.md) for platform baselines, SHA-256 verification, and package contents.
+
 Install a current stable Rust toolchain, then:
 
 ```console
@@ -121,7 +123,7 @@ Run the local preflight before pushing:
 bash scripts/check.sh
 ```
 
-It runs formatting, Clippy, all target tests, doctests, and the binary build. On Unix it also runs the event-driven PTY demo and a credential-free live-mode journey against a local HTTP fixture. The fixture invokes one real harmless command, checks exact context/results, and exercises correction and Ctrl-C separately. It uses temporary config/data and never contacts your configured hosted provider. Python is needed only for this Unix QA step.
+It runs formatting, Clippy, all target tests, doctests, and the binary build. On Unix it also runs fast release publication guard tests, the event-driven PTY demo, and a credential-free live-mode journey against a local HTTP fixture. The fixture invokes one real harmless command, checks exact context/results, and exercises correction and Ctrl-C separately. It uses temporary config/data and never contacts your configured hosted provider. Python is needed only for Unix QA and release packaging.
 
 Ordinary `cargo build` does not execute tests. CI runs Linux preflight before native macOS/Windows checks, retains platform-specific Clippy, and captures failure logs. PRs and pushes to `main` trigger CI; feature branches are checked through their PR, avoiding duplicate branch-push runs. Superseded revisions are canceled. The manual coverage workflow includes the native terminal journeys without adding an instrumented build to every PR. See [testing and coverage](docs/testing.md) for commands, evidence, and remaining platform limits.
 

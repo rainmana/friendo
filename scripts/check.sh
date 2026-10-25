@@ -9,5 +9,8 @@ cargo test --all-targets --locked
 cargo test --doc --locked
 cargo build --locked --bins
 case "$(uname -s)" in
-  Linux|Darwin) python3 tests/terminal_smoke.py ;;
+  Linux|Darwin)
+    python3 tests/release_packaging.py
+    python3 tests/terminal_smoke.py
+    ;;
 esac
