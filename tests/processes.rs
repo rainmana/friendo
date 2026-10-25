@@ -84,7 +84,10 @@ async fn timeout_stops_a_native_process() {
         .await
         .unwrap();
     assert_eq!(result.termination, "timeout");
+    #[cfg(unix)]
     assert_eq!(result.exit_code, None);
+    #[cfg(windows)]
+    assert_eq!(result.exit_code, Some(1)); // The executor's TerminateJobObject exit code.
     assert_cleanup_observed(&result.descendants);
 }
 
@@ -182,9 +185,10 @@ async fn read_until(manager: &mut SessionManager, id: &str, needle: &str) -> ser
     let mut output = String::new();
     let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
     while tokio::time::Instant::now() < deadline {
-        let value = manager.read(id).await.unwrap();
+        let mut value = manager.read(id).await.unwrap();
         output.push_str(value["stdout_excerpt"].as_str().unwrap());
         if output.contains(needle) {
+            value["stdout_excerpt"] = output.into();
             return value;
         }
         tokio::time::sleep(Duration::from_millis(10)).await;
@@ -217,12 +221,18 @@ async fn session_survives_separate_turns_and_reads_only_new_output() {
         .unwrap();
     read_until(&mut manager, &id, "explicit-value").await;
     manager.write(&id, "pwd\n").await.unwrap();
-    read_until(
+    let observed_cwd = read_until(
         &mut manager,
         &id,
-        cwd.path().canonicalize().unwrap().to_str().unwrap(),
+        cwd.path().file_name().unwrap().to_str().unwrap(),
     )
     .await;
+    // Windows may report an 8.3 short path while canonicalize uses a long/verbatim path.
+    let observed_cwd = PathBuf::from(observed_cwd["stdout_excerpt"].as_str().unwrap().trim());
+    assert_eq!(
+        observed_cwd.canonicalize().unwrap(),
+        cwd.path().canonicalize().unwrap()
+    );
     manager.write(&id, "exit 7\n").await.unwrap();
     let done = manager.wait(&id, 2_000).await.unwrap();
     assert_eq!(done["result"]["exit_code"], 7);
