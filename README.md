@@ -10,7 +10,7 @@ This first slice includes a credential-free guided demo, OpenAI-compatible and n
 
 Prebuilt Linux, macOS (Apple Silicon/Intel), and Windows downloads are published on [GitHub Releases](https://github.com/rainmana/friendo/releases). See [release instructions](docs/releases.md) for platform baselines, SHA-256 verification, and package contents.
 
-The Chat/Expert presentation controls below apply to the current source build. Published v0.1.0 retains its original console; these local UI changes have not been published or installed over that release.
+These instructions describe v0.2.0 and current source builds, including the Chat/Expert presentation controls. v0.1.0 retains its original console. Publishing a new release does not replace an already installed binary.
 
 Install a current stable Rust toolchain, then:
 
@@ -37,7 +37,7 @@ friendo replay <run-id> --context
 
 ## Chat and Expert
 
-The source build defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
+friendo v0.2.0 defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
 
 Use **F2** to switch between Chat and the existing **Expert** console, or start directly with `friendo --ui-mode expert run`. The setting `ui_mode = "chat"` or `"expert"` chooses the initial presentation independently of `layout`, NORMAL/YOLO, and execution admission. Switching modes preserves the run, journal, draft, active work, and historical position; it does not dispatch work or change policy.
 
@@ -154,6 +154,6 @@ It runs formatting, Clippy, all target tests, doctests, and the binary build. On
 
 Ordinary `cargo build` does not execute tests. CI runs Linux preflight before native macOS/Windows checks, retains platform-specific Clippy, and captures failure logs. PRs and pushes to `main` trigger CI; feature branches are checked through their PR, avoiding duplicate branch-push runs. Superseded revisions are canceled. The manual coverage workflow includes the native terminal journeys without adding an instrumented build to every PR. See [testing and coverage](docs/testing.md) for commands, evidence, and remaining platform limits.
 
-The released v0.1.0 base passed native CI on Linux, macOS, and Windows with Rust 1.99.1: 65 tests on each Unix runner and 63 on Windows, with platform-specific coverage. Its two terminal journeys passed on Linux/macOS; the Unix PTY helper does not run on Windows. See that [successful run](https://github.com/rainmana/friendo/actions/runs/40230836566) and [verification record](docs/verification/native-ci-2026-10-25.json). Those counts describe the released base; see [build status](docs/build-status.md) for validation of the local Chat/Expert changes. Deterministic provider fixtures and the synthetic demo remain separate from live provider checks. Current omissions include PTY emulation, network discovery, semantic conflict detection, arbitrary constraint enforcement, comprehensive tool-version probing, and distributed execution.
+The Chat/Expert feature commit [`8648af5`](https://github.com/rainmana/friendo/commit/8648af5c00f97379a264599cb41873db28fea652) passed [native CI](https://github.com/rainmana/friendo/actions/runs/40241434834) on Linux and macOS with 101 Rust tests and on Windows with 99 platform-specific tests. Both Unix terminal journeys passed; the Unix PTY helper does not run on Windows. The earlier v0.1.0 base and its coverage measurements remain separately recorded in [build status](docs/build-status.md) and the [verification record](docs/verification/native-ci-2026-10-25.json). Deterministic provider fixtures and the synthetic demo remain separate from live provider checks. Current omissions include PTY emulation, network discovery, semantic conflict detection, arbitrary constraint enforcement, comprehensive tool-version probing, and distributed execution.
 
 MCW means **Meta-Context Window**. friendo records coordination observations; it does not implement or store MCW, read private human understanding, or calculate a universal alignment score. See [sources and canonical mappings](docs/sources.md), [architecture](docs/architecture.md), [Graffy assessment](docs/graffy-assessment.md), [product specification](docs/product.md), and [build status](docs/build-status.md). GPL-3.0-only; see [LICENSE](LICENSE).

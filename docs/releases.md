@@ -26,7 +26,7 @@ On Linux use `sha256sum --check SHA256SUMS` after downloading all four archives.
 
 ```console
 cargo build --release --locked --bin friendo --target aarch64-apple-darwin
-python3 scripts/release.py package --tag v0.1.0 --target aarch64-apple-darwin
+python3 scripts/release.py package --tag v0.2.0 --target aarch64-apple-darwin
 ```
 
 Substitute the native target/version for another host. Output stays under ignored `target/release-assets/`. The package command refuses to overwrite existing assets. To retry a failed build workflow on an existing tag, rerun its failed jobs; manual dispatch is also supported when selecting the tag ref, after checking for any existing draft/published release.
