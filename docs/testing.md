@@ -29,7 +29,7 @@ Generated captures are `docs/captures/demo.cast` and `docs/captures/live-fixture
 
 Linux runs the full preflight first. macOS and Windows run after that gate, retaining native Clippy for platform-specific `cfg` code and native tests on all three operating systems. Unix runners also execute the PTY helper. Tests are not retried automatically. Jobs have bounded timeouts; failures upload logs and credential-free terminal captures for seven days. Existing Rust caching remains.
 
-The real CLI integration tests replace standalone headless-demo/doctor exit-zero smoke commands. Native tests still matter: compiling Windows code cannot prove Job Object behavior, and fixture HTTP cannot prove hosted model support. No CI run has been pushed or dispatched as part of this local implementation.
+The real CLI integration tests replace standalone headless-demo/doctor exit-zero smoke commands. Native tests still matter: compiling Windows code cannot prove Job Object behavior, and fixture HTTP cannot prove hosted model support. The [native CI run](https://github.com/rainmana/friendo/actions/runs/40230836566) passed on all three platforms; the separate manual coverage workflow was not dispatched.
 
 ## Coverage
 
@@ -77,6 +77,10 @@ The after-run uses explicit instrumentation for external binaries. Symbol inspec
 
 ## Platform limits
 
-All runtime results in this change were executed on macOS/aarch64. Linux and Windows native runtime tests await hosted execution. A local full Windows GNU cross-check could not pass ring's C build because MinGW is absent. A temporary harness using the actual process/store/model sources, fixture executable, and process tests did pass Windows-target compilation with rustup stable 1.96.0; it excluded the provider/TLS layer and did not execute Windows binaries. The main local build/test compiler is Homebrew Rust 1.98.1. Windows Job Object pre-assignment races remain explicitly unverified in runtime results.
+Local runtime checks use macOS/aarch64 with Homebrew Rust 1.98.1. Hosted execution with Rust 1.99.1 passed 65 tests on Linux/x86_64 and macOS/aarch64, and 63 on Windows/x86_64 MSVC. Windows has 19 unit and 17 process tests; Unix has 20 and 18 because of platform-specific cases. Both have 7 configuration, 5 CLI, 10 provider, and 5 runtime integration tests. The nested credential-header subprocess test is not counted twice. Both PTY journeys passed on Linux/macOS; Windows terminal emulation is not covered by that Unix helper. Exact jobs, counts, and log hashes are in the [native verification record](verification/native-ci-2026-10-25.json).
+
+The initial hosted run exposed two Windows assertion mistakes. Rust reports the numeric Windows termination status (1 for this executor), whereas a Unix signal produces no numeric exit code. A child's cwd can also use an 8.3 short spelling of the same directory; the test now canonicalizes observed and expected paths. Native reruns verified both fixes without changing executor behavior. Primary references: [Rust exit status](https://doc.rust-lang.org/std/process/struct.ExitStatus.html#method.code) and [canonicalize](https://doc.rust-lang.org/std/fs/fn.canonicalize.html).
+
+Earlier local Windows GNU cross-checking stopped at ring's missing MinGW compiler. A temporary process/store/model harness passed Windows-target compilation with rustup stable 1.96.0, excluding provider/TLS code. The later native MSVC run exercises the full suite. Windows Job Object pre-assignment races remain explicitly unverified despite observed cleanup in the tested scenarios.
 
 No Protobuf migration or runtime format change is part of this work. Nextest and mutation tooling remain future targeted evaluations, not new per-push costs.

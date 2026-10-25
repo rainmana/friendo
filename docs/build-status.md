@@ -16,7 +16,7 @@ Runnable local v0.1.0 vertical slice. Native Rust/Ratatui application with a sha
 
 ## Verification actually executed
 
-Host: **macOS / aarch64**, Rust **1.98.1**, Cargo **1.98.1**. No native Windows/Linux execution or cross-compilation claim.
+Local host: **macOS / aarch64**, Rust **1.98.1**, Cargo **1.98.1**. Hosted native CI also passed on **Linux/x86_64, macOS/aarch64, and Windows/x86_64 (MSVC)** with Rust **1.99.1**; see the [successful run](https://github.com/rainmana/friendo/actions/runs/40230836566) and [verification record](verification/native-ci-2026-10-25.json).
 
 | Check | Result |
 | --- | --- |
@@ -32,14 +32,18 @@ Host: **macOS / aarch64**, Rust **1.98.1**, Cargo **1.98.1**. No native Windows/
 | Ratatui backend | 140×44, 60×24, 38×14, 20×8; off/no-color rendering and history controls tested |
 | Visual inspection | Normal frame PNG inspected; narrow text capture inspected; label overlap fixed and narrow layout changed to list |
 | Live Anthropic model/tool loop | **Passed**: authenticated catalog selection of claude-haiku-5-5; two streaming requests, one real printf command, exact context/result audit; see [live report](live-anthropic.md) |
-| Windows/Linux | CI matrix configured, **not executed here** |
+| Hosted Linux | Passed: formatting, Clippy, **65 tests**, doctest check, binary build, both native terminal journeys |
+| Hosted macOS | Passed: native Clippy, **65 tests**, binary build, both native terminal journeys |
+| Hosted Windows | Passed: native Clippy and **63 tests**, including observed Job Object/descendant cleanup, timeout, sessions, provider fixtures, and integrated runtime; Unix PTY helper not run |
 | Local coverage | 65 Rust tests plus both instrumented PTY journeys; application source-file line coverage 67.66% → 85.10%, TUI 43.24% → 72.59%; inline unit-test code included; [evidence](verification/coverage-2026-10-25.json) |
 
 The first default-sandbox test attempt could not bind loopback HTTP listeners. Tests were rerun with the necessary local-network permission and passed. This is separate from an application/protocol failure.
 
 The coverage/CI follow-up added policy and credential-reference rejection, journal corruption and failed-write boundaries, artifact containment/size/text checks, partial configuration/provenance/limit/remap tests, and isolated real-binary CLI tests. Replay compares every retained file byte-for-byte and uses both command and HTTP sentinels to detect accidental external actions. The normal preflight is `bash scripts/check.sh`; [testing.md](testing.md) records coverage collection and CI policy. Protobuf and authoritative runtime formats remain unchanged.
 
-The workflows passed local actionlint 1.7.12 validation. Linux preflight gates native macOS/Windows jobs; formatting runs once, platform-specific Clippy remains, superseded revisions cancel, jobs have timeouts, and failures retain logs/terminal recordings. Coverage is manual with a separate cache and includes external PTY journeys. No hosted workflow was dispatched. A full local Windows GNU cross-check stopped at the missing MinGW C compiler required by ring; Windows runtime evidence remains pending. The actual process/store/model modules and process test target were separately compile-checked for Windows in a temporary dependency-isolated harness, without executing them.
+The workflows passed local actionlint 1.7.12 validation. Linux preflight gates native macOS/Windows jobs; formatting runs once, platform-specific Clippy remains, superseded revisions cancel, jobs have timeouts, and failures retain logs/terminal recordings. Coverage is manual with a separate cache and includes external PTY journeys; that hosted manual workflow was not dispatched. The local Windows GNU cross-check stopped at missing MinGW, and a temporary process-only harness passed target compilation. Native Windows MSVC execution is now separately verified by the hosted run.
+
+The first hosted run at df84a94 passed Linux/macOS and exposed two Windows test portability assumptions: timeout termination reports the executor's numeric code 1, and cwd output can use an equivalent 8.3 short path. Commit 478cf29 checks the observed platform exit status, compares canonical filesystem paths, and retains all output fragments while waiting. The complete native run then passed on all three platforms. Runtime termination, execution policy, provider defaults, and Protobuf were unchanged by those fixes.
 
 Provider fixtures use real loopback HTTP and byte-fragmented SSE. They cover held terminators, incomplete/malformed/truncated calls, native signed continuation, tool ID/result association, auth-header placement, error secrecy, bounded presentation backpressure, and cancellation during stalled headers/body.
 
@@ -57,7 +61,7 @@ This is a narrow first usable version. It is not production-readiness evidence.
 
 - Live evidence covers one bounded Anthropic text/tool loop on claude-haiku-5-5, selected from the authenticated model list. Other hosted models, explicit thinking configurations, and live OpenAI-compatible endpoint checks remain unverified. After verification, the workspace default friendo.toml was configured for that model and ANTHROPIC_API_KEY with NORMAL autonomy and the standard execution policy. The isolated live config remains local; the test/CI follow-up did not change the provider default.
 - Sessions use pipes, with a configured deadline (default 30s); PTY terminal emulation, a real r2/debugger-specific smoke test, and cross-process session reattachment are not implemented.
-- Unix process-group results explicitly leave escaped descendants untracked. Windows Job Object assignment has a pre-assignment race and is unexecuted here. Incomplete termination is not success.
+- Unix process-group results explicitly leave escaped descendants untracked. Native Windows tests now observe Job Object cleanup and descendant exit, but the documented pre-assignment race remains unverified. Incomplete termination is not success.
 - Executable admission is not an OS sandbox. Generic natural-language constraints remain explicit outbound instructions, not universally enforceable predicates. Provider credential ENV names are removed from child environments and cannot be requested through model ENV references; output redaction protects known literal values, not every possible encoding or exfiltration channel.
 - Semantic disagreement is not automatically diagnosed. Revision mismatches/stale explicit dependencies are mechanically observable; possible failure reports carry provenance. Live replies produce new current nodes; old historical plans/answers stay stale until explicitly re-evaluated.
 - LINK RESTORED is earned only by the guided fixture's documented delivery, interpretation, exported-only filter, and retained-original-source checks. The fixture accepts its displayed correction only; arbitrary corrections require live operation. This says nothing about identical human/model understanding.
@@ -69,6 +73,6 @@ This is a narrow first usable version. It is not production-readiness evidence.
 
 ## Next bounded milestone
 
-Run the native suite on Windows/Linux CI and repair any platform-specific failures. Then add an isolated PTY component and verify one persistent r2/debugger workflow without expanding execution authority. The first bounded live Anthropic verification is complete.
+Add an isolated PTY component and verify one persistent r2/debugger workflow without expanding execution authority. The bounded live Anthropic verification and three-platform native CI checks are complete.
 
 Canonical MCW and Graffy revisions, implementation assessment, and primary references are recorded in [sources.md](sources.md) and [graffy-assessment.md](graffy-assessment.md).

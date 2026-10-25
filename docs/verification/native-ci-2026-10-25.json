@@ -1,0 +1,225 @@
+{
+  "date": "2026-10-25",
+  "repository": "rainmana/friendo",
+  "verified_commit": "478cf2951b6fa4d8f2ab7d24081caf4e7cf7ef14",
+  "workflow": "native verification",
+  "run_id": 40230836566,
+  "run_url": "https://github.com/rainmana/friendo/actions/runs/40230836566",
+  "conclusion": "success",
+  "platforms": [
+    {
+      "platform": "linux",
+      "target": "x86_64-unknown-linux-gnu",
+      "rustc": "1.99.1",
+      "tests_passed": 65,
+      "job_id": 121282010453,
+      "job_url": "https://github.com/rainmana/friendo/actions/runs/40230836566/job/121282010453",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@stable",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run mkdir -p target/qa",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run bash scripts/check.sh 2>&1 | tee target/qa/checks.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ],
+      "terminal_demo_passed": true,
+      "terminal_live_fixture_passed": true,
+      "retrieved_log_sha256": "aa85a33362d27e56811737d9bfda5f2f1af2df3563fb95afeee3a3a315f841a8"
+    },
+    {
+      "platform": "macos",
+      "target": "aarch64-apple-darwin",
+      "rustc": "1.99.1",
+      "tests_passed": 65,
+      "job_id": 121282159333,
+      "job_url": "https://github.com/rainmana/friendo/actions/runs/40230836566/job/121282159333",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@stable",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run mkdir -p target/qa",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo clippy --all-targets --locked -- -D warnings 2>&1 | tee target/qa/clippy.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo test --all-targets --locked 2>&1 | tee target/qa/tests.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo build --locked --bins 2>&1 | tee target/qa/build.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run python3 tests/terminal_smoke.py 2>&1 | tee target/qa/terminal.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ],
+      "terminal_demo_passed": true,
+      "terminal_live_fixture_passed": true,
+      "retrieved_log_sha256": "cdb3412c9cd33086beddfc58c2833a89873020836acdfcf3a94b4451143c1d58"
+    },
+    {
+      "platform": "windows",
+      "target": "x86_64-pc-windows-msvc",
+      "rustc": "1.99.1",
+      "tests_passed": 63,
+      "job_id": 121282159318,
+      "job_url": "https://github.com/rainmana/friendo/actions/runs/40230836566/job/121282159318",
+      "conclusion": "success",
+      "steps": [
+        {
+          "name": "Set up job",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run dtolnay/rust-toolchain@stable",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run mkdir -p target/qa",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo clippy --all-targets --locked -- -D warnings 2>&1 | tee target/qa/clippy.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo test --all-targets --locked 2>&1 | tee target/qa/tests.log",
+          "conclusion": "success"
+        },
+        {
+          "name": "Run cargo build --locked --bins 2>&1 | tee target/qa/build.log",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run python3 tests/terminal_smoke.py 2>&1 | tee target/qa/terminal.log",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Run actions/upload-artifact@v4",
+          "conclusion": "skipped"
+        },
+        {
+          "name": "Post Run Swatinem/rust-cache@v2",
+          "conclusion": "success"
+        },
+        {
+          "name": "Post Run actions/checkout@v4",
+          "conclusion": "success"
+        },
+        {
+          "name": "Complete job",
+          "conclusion": "success"
+        }
+      ],
+      "terminal_demo_passed": false,
+      "terminal_live_fixture_passed": false,
+      "retrieved_log_sha256": "f6faf859cd45e315fe722336235da1a595f0d3be812de9ea9438f7c0031e4f03"
+    }
+  ],
+  "initial_failure": {
+    "commit": "df84a94b66451babfedd8bca9f2ca4e4d5ed909a",
+    "run_id": 40230243402,
+    "run_url": "https://github.com/rainmana/friendo/actions/runs/40230243402",
+    "platform": "windows-latest",
+    "failed_tests": [
+      "timeout_stops_a_native_process",
+      "session_survives_separate_turns_and_reads_only_new_output"
+    ],
+    "cause": [
+      "Unix-only absent-exit-code expectation rejected the observed Windows code 1",
+      "String comparison rejected equivalent Windows short and long cwd paths"
+    ],
+    "fix_commit": "478cf2951b6fa4d8f2ab7d24081caf4e7cf7ef14"
+  },
+  "scope": {
+    "hosted_live_model_calls": false,
+    "provider_tests": "deterministic loopback HTTP fixtures",
+    "unix_terminal_journeys": [
+      "synthetic demo",
+      "fixture-backed live mode with one real harmless command"
+    ],
+    "windows_terminal_helper_executed": false,
+    "protobuf_changed": false,
+    "execution_policy_changed": false,
+    "credentials_generated_runs_and_index_state_committed": false,
+    "pre_assignment_windows_spawn_race_verified": false
+  }
+}
