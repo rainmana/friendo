@@ -21,7 +21,7 @@ On Linux use `sha256sum --check SHA256SUMS` after downloading all four archives.
 2. Run `bash scripts/check.sh` (including release publication guard tests), Python syntax validation for `scripts/release.py`, and actionlint. Build and exercise a local optimized package with the commands below.
 3. Commit and push to main. Wait for native verification to pass on the exact commit.
 4. Create and push an annotated `v<VERSION>` tag on that tested commit. The tag must exactly match Cargo's version and belong to main history.
-5. Monitor `tagged release`. It reuses the successful native CI result, builds four optimized native application binaries, and smoke-tests each extracted package: version, offline NORMAL defaults, repaired synthetic demo, and byte-preserving replay.
+5. Monitor `tagged release`. It reuses the successful native CI result, builds four optimized native application binaries from clean target directories, and smoke-tests each extracted package: version, offline NORMAL defaults, repaired synthetic demo, and byte-preserving replay. Release actions are pinned to full commit hashes; compiled release artifacts are not restored from cache.
 6. Publication requires the complete four-platform archive set, matching source identity, and valid checksums. Assets are uploaded to a draft, then the workflow publishes it. Existing releases/assets are never overwritten automatically. If publication itself fails after staging, inspect the draft before completing it or retrying.
 
 ```console
