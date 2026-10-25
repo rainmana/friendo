@@ -1,5 +1,6 @@
 pub mod config;
 pub mod controller;
+pub mod conversation;
 pub mod model;
 pub mod process;
 pub mod provider;

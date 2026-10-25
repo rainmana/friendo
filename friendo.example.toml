@@ -6,6 +6,7 @@ color = true
 fps = 30
 max_turns = 12
 layout = "map"     # map | list
+ui_mode = "chat"   # chat | expert; presentation only, independent of autonomy
 
 [execution]
 # Names resolve through PATH. An absolute executable requires an exact entry.

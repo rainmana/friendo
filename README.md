@@ -10,6 +10,8 @@ This first slice includes a credential-free guided demo, OpenAI-compatible and n
 
 Prebuilt Linux, macOS (Apple Silicon/Intel), and Windows downloads are published on [GitHub Releases](https://github.com/rainmana/friendo/releases). See [release instructions](docs/releases.md) for platform baselines, SHA-256 verification, and package contents.
 
+The Chat/Expert presentation controls below apply to the current source build. Published v0.1.0 retains its original console; these local UI changes have not been published or installed over that release.
+
 Install a current stable Rust toolchain, then:
 
 ```console
@@ -33,9 +35,33 @@ friendo replay <run-id> --context
 
 `whoami` must exist on the host. `doctor` inspects configuration and credential presence without contacting a model. `--at N` reviews the first N recorded events; `--context` prints the last retained outbound body at that position.
 
+## Chat and Expert
+
+The source build defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
+
+Use **F2** to switch between Chat and the existing **Expert** console, or start directly with `friendo --ui-mode expert run`. The setting `ui_mode = "chat"` or `"expert"` chooses the initial presentation independently of `layout`, NORMAL/YOLO, and execution admission. Switching modes preserves the run, journal, draft, active work, and historical position; it does not dispatch work or change policy.
+
+The **Understanding** panel distinguishes recorded user intent, model-reported interpretation, observed tool evidence, unresolved conflicts, and status. Earlier answers/evidence can remain visible with stale markers after a correction. These are attributed records; the panel does not infer private hidden reasoning, certainty, shared understanding, or an unrecorded plan. Streaming preview remains separate from retained completed responses. A historical tool without completion evidence has **outcome unknown**.
+
+Wide Chat layouts place the conversation beside the map and Understanding. Narrow layouts keep a compact map/activity area above the conversation, with details available through inspectors.
+
+| Chat control | Action |
+| --- | --- |
+| `Enter`, `Esc`, `i` | Submit focused input; browse; return to typing |
+| `F2` | Switch Chat/Expert while preserving the current draft and run |
+| `F3` | Inspect the selected conversation card and evidence |
+| `F4` | Open correction using the existing Rewire semantics |
+| `F5` | Inspect retained outbound context |
+| `F6` | Focus the live map or return to the conversation |
+| `PageUp` / `PageDown` | Scroll the conversation or focused inspector |
+| `Ctrl-C` | Interrupt the active turn through the existing controller |
+| `q` outside input | Quit |
+
+Historical review remains read-only in either presentation. The Expert controls and guided repair walkthrough below apply when Expert has focus.
+
 ## Repair walkthrough
 
-1. Run `friendo demo`. Every simulated artifact and domain fixture remains labeled **SYNTHETIC**; the demo does not execute a binary or scan a network.
+1. Run `friendo --ui-mode expert demo`. Every simulated artifact and domain fixture remains labeled **SYNTHETIC**; the demo does not execute a binary or scan a network.
 2. Press **Space** to reveal the fixture invocation, two-symbol output artifact, and supported answer. Use **Tab** to cycle Runtime, Coordination, Evidence, and Domain lenses.
 3. Press **Space** again: the goal becomes exported symbols only. The original-binary constraint stays. The old interpretation, plan, and answer become stale.
 4. Press **r** for **Rewire**. Inspect the source, prior interpretation, and affected work. Keep the supplied exported-only correction unchanged; **Tab** selects Ground, Expand, Prioritize, Split, or Sync. Press **Enter** to apply. This guided fixture accepts its specific correction; arbitrary goal edits belong in `run`.
@@ -68,7 +94,7 @@ friendo run "Report the current user through exec" --provider local --headless
 friendo --yolo run "Report the current user through exec"
 ```
 
-Omit the goal in `friendo run` to open the composer. Use **i**, type a task, and **Enter**. `/conflict <text>` records a possible human-reported interpretation conflict; Normal mode pauses dependent work. `/continue` starts another turn using the current in-memory context, including recorded retained-session IDs/status. It does not resume a run from disk. Rewire writes a correction and starts a new turn when idle; after interrupting an active turn, submit `/continue` once it stops.
+Omit the goal in `friendo run` to open Chat with input focused; type a task and press **Enter**. In Expert, press **i** first. `/conflict <text>` records a possible human-reported interpretation conflict; Normal mode pauses dependent work. `/continue` starts another turn using the current in-memory context, including recorded retained-session IDs/status. It does not resume a run from disk. Rewire writes a correction and starts a new turn when idle; after interrupting an active turn, submit `/continue` once it stops.
 
 Composer controls also include `/ack` for an explicit acknowledgment of the current recorded interpretation, `/constraints ["Do not modify files"]` to replace the full constraint list in a new revision, and `/report false_alignment <text>` to record a possible canonical failure with human-report provenance. Other accepted report names are `drift`, `asymmetric_state_advancement`, `overcompression`, `constraint_opacity`, and `repair_suppression`. None of these reports establishes a proven diagnosis.
 
@@ -86,12 +112,13 @@ Shell evaluation is a separate model tool and requires both `execution.allow_she
 
 The `session` model tool supports `start`, `read`, `write`, `interrupt`, `wait`, and `terminate`. Sessions use native pipes, survive individual model turns in the same application, and have the configured execution timeout (30 seconds by default). They do not survive application exit or provide terminal emulation. For an isolated QA session, explicitly add the exact built path of `friendo-fixture` to `execution.allowed_executables`, then ask the model to start that path with `args = ["session"]`, read, write `hello\n`, read the reply, and terminate it. Every action and result is recorded. The helper can read inherited environment variables; use a test environment and remove its admission afterward.
 
-**Ctrl-C** requests cancellation of the current turn and interruption of all retained sessions. A persistent process also has targeted `session interrupt`/`terminate` operations. **q** quits, cancels active work, and terminates retained sessions. Requested cancellation and observed termination are different records; inspect incomplete outcomes. Shell conventions are handled explicitly for Unix shells, `cmd`, and PowerShell.
+**Ctrl-C** requests cancellation of the current turn and interruption of all retained sessions. A persistent process also has targeted `session interrupt`/`terminate` operations. Outside a text editor, **q** quits, cancels active work, and terminates retained sessions. Requested cancellation and observed termination are different records; inspect incomplete outcomes. Shell conventions are handled explicitly for Unix shells, `cmd`, and PowerShell.
 
-## Terminal controls
+## Expert terminal controls
 
 | Control | Action |
 | --- | --- |
+| `F2` | Switch to Chat without replacing the run or draft |
 | `1`–`5` | Topology, Intent, Evidence, Context, Config |
 | `j` / `k`, `Enter` | Select a node; inspect provenance/detail |
 | Arrow keys, `+` / `-`, `0` | Pan, zoom, reset camera |
@@ -105,7 +132,7 @@ The `session` model tool supports `start`, `read`, `write`, `interrupt`, `wait`,
 | `PageUp` / `PageDown` | Scroll inspectors |
 | `?`, `Ctrl-C`, `q` | Help, interrupt, quit |
 
-Effects support `off`, `reduced`, `full` (default), and `overdrive`: `friendo --effects off --no-color demo`. The configured frame budget defaults to 30 FPS; no benchmark claim is made. Windows narrower than 90 columns use the list alternative, and the footer/help show active bindings. `friendo.toml` exposes system prompt, provider options, turn/tool limits, layout, effects/color/FPS, and remaps for repair/YOLO/trace/pin. CLI values override file values, then defaults. File changes apply to the next run; direct YOLO changes apply at the next dispatch. Full keymap, workflow, and automated context-rule editors are not implemented.
+Effects support `off`, `reduced`, `full` (default), and `overdrive`: `friendo --effects off --no-color demo`. The configured frame budget defaults to 30 FPS; no benchmark claim is made. Expert windows narrower than 90 columns use the list alternative, and the footer/help show active bindings. The source build supports system prompt, provider options, turn/tool limits, initial UI mode, layout, effects/color/FPS, and remaps for repair/YOLO/trace/pin. CLI values override file values, then defaults. File changes apply to the next run; direct YOLO changes apply at the next dispatch. Older TOML files without `ui_mode` default to Chat in the new build. Keep `ui_mode` out of a configuration still shared with published v0.1.0, which rejects unknown fields; select the new presentation with CLI/defaults until that older binary is no longer using the file. Full keymap, workflow, and automated context-rule editors are not implemented.
 
 ## Records, privacy, and review
 
@@ -113,7 +140,7 @@ Runs live in `.friendo/runs/<UUID>/` by default; `--data-dir <path>` selects ano
 
 Known configured credential values are redacted before journal/artifact retention and process spooling, including split output reads and escaped/nested JSON strings. Credential references are retained; arbitrary sensitive text is not automatically detected. Other user text, commands, context, and outputs are stored locally until you remove the run. There is no automatic expiry. Child processes inherit the host environment after configured provider credential names are removed; `env_refs` cannot pass those credential references into tools. Other environment values remain available, and execution admission is not an OS sandbox.
 
-Each outbound request body is retained after credential redaction. Context view renders that body; **Enter** opens it inline. Tool excerpts are sanitized and bounded; artifact records expose transformations and capture truncation. Artifact pins read actual retained source contents; other pins include the selected label/detail. Pins over 64 KiB or unavailable sources fail visibly. Expand adds marked 16 KiB excerpts from up to eight retained sources. Provider-internal context is unavailable. Events have 1 MiB record, 64 MiB retained serialized-event, and 100,000-event limits. A truncated final journal line preserves earlier valid events and reports the ignored tail; an action or persistent session lacking completion evidence remains **outcome unknown** and is never automatically replayed or reattached.
+Each outbound request body is retained after credential redaction. **F5** in Chat opens retained context; Expert's Context view renders that body and **Enter** opens it inline. Tool excerpts are sanitized and bounded; artifact records expose transformations and capture truncation. Artifact pins read actual retained source contents; other pins include the selected label/detail. Pins over 64 KiB or unavailable sources fail visibly. Expand adds marked 16 KiB excerpts from up to eight retained sources. Provider-internal context is unavailable. Events have 1 MiB record, 64 MiB retained serialized-event, and 100,000-event limits. A truncated final journal line preserves earlier valid events and reports the ignored tail; an action or persistent session lacking completion evidence remains **outcome unknown** and is never automatically replayed or reattached.
 
 ## Development and scope
 
@@ -127,6 +154,6 @@ It runs formatting, Clippy, all target tests, doctests, and the binary build. On
 
 Ordinary `cargo build` does not execute tests. CI runs Linux preflight before native macOS/Windows checks, retains platform-specific Clippy, and captures failure logs. PRs and pushes to `main` trigger CI; feature branches are checked through their PR, avoiding duplicate branch-push runs. Superseded revisions are canceled. The manual coverage workflow includes the native terminal journeys without adding an instrumented build to every PR. See [testing and coverage](docs/testing.md) for commands, evidence, and remaining platform limits.
 
-Native CI passed on Linux, macOS, and Windows with Rust 1.99.1: 65 tests on each Unix runner and 63 on Windows, with platform-specific coverage. Both terminal journeys passed on Linux/macOS; the Unix PTY helper does not run on Windows. See the [successful run](https://github.com/rainmana/friendo/actions/runs/40230836566) and [verification record](docs/verification/native-ci-2026-10-25.json). Deterministic provider fixtures and the synthetic demo remain separate from live provider checks. Current omissions include PTY emulation, network discovery, semantic conflict detection, arbitrary constraint enforcement, comprehensive tool-version probing, and distributed execution.
+The released v0.1.0 base passed native CI on Linux, macOS, and Windows with Rust 1.99.1: 65 tests on each Unix runner and 63 on Windows, with platform-specific coverage. Its two terminal journeys passed on Linux/macOS; the Unix PTY helper does not run on Windows. See that [successful run](https://github.com/rainmana/friendo/actions/runs/40230836566) and [verification record](docs/verification/native-ci-2026-10-25.json). Those counts describe the released base; see [build status](docs/build-status.md) for validation of the local Chat/Expert changes. Deterministic provider fixtures and the synthetic demo remain separate from live provider checks. Current omissions include PTY emulation, network discovery, semantic conflict detection, arbitrary constraint enforcement, comprehensive tool-version probing, and distributed execution.
 
 MCW means **Meta-Context Window**. friendo records coordination observations; it does not implement or store MCW, read private human understanding, or calculate a universal alignment score. See [sources and canonical mappings](docs/sources.md), [architecture](docs/architecture.md), [Graffy assessment](docs/graffy-assessment.md), [product specification](docs/product.md), and [build status](docs/build-status.md). GPL-3.0-only; see [LICENSE](LICENSE).

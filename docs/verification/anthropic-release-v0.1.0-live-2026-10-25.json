@@ -1,0 +1,105 @@
+{
+  "status": "passed",
+  "verified_at_utc": "2026-10-25T22:01:30.214827+00:00",
+  "platform": "macOS/aarch64",
+  "version": "0.1.0",
+  "release_commit": "dee1a3937be97cad98ba16d3cd766c6bb22b41ad",
+  "binary_sha256": "825ed7f7fffe4f7ca758f626fe7d86e56248e1d2445daedd3909682c18e3b00e",
+  "config_sha256": "55173c8f2b3ba9589e4fd9eb19d4a53636296b5283c42aa88a220010993301ff",
+  "model": "claude-haiku-5-5",
+  "credential_reference": "ANTHROPIC_API_KEY",
+  "autonomy": "normal",
+  "policy_unchanged": true,
+  "run_id": "3ba1c60d-9a98-474f-b1cf-d67df896308a",
+  "journal_events": 56,
+  "event_counts": {
+    "started": 1,
+    "autonomy": 1,
+    "node": 14,
+    "intent": 1,
+    "artifact": 6,
+    "model_requested": 2,
+    "edge": 20,
+    "delivered": 2,
+    "model_finished": 2,
+    "interpretation": 2,
+    "tool_started": 1,
+    "tool_finished": 1,
+    "check": 1,
+    "repair": 1,
+    "status": 1
+  },
+  "journal_identity_sequence_and_causes": "passed",
+  "model_requests": 2,
+  "tool_invocations": 1,
+  "retained_context_tool_result_matches_journal": true,
+  "native_continuation_preserved": true,
+  "thinking_signature_preserved": true,
+  "usage": {
+    "input_tokens": 3119,
+    "output_tokens": 315
+  },
+  "replay": {
+    "variants": [
+      "state",
+      "context",
+      "before-tool"
+    ],
+    "credential_removed_from_replay_environment": true,
+    "all_run_files_byte_identical": true,
+    "files_compared": 7
+  },
+  "credential_scan": {
+    "status": "passed",
+    "forms": [
+      "raw",
+      "json-escaped",
+      "double-json-escaped",
+      "url-encoded",
+      "base64",
+      "base64-url",
+      "hex"
+    ],
+    "scope": "all verification files including journal, artifacts, CLI output, and replay output",
+    "limit": "known credential byte forms; not universal confidential-data detection",
+    "files_scanned": 21
+  },
+  "config_unchanged": true,
+  "raw_run_file_sha256": {
+    "artifacts/922715ba-9d09-46d8-81be-705e3b03c468.txt": "a33dc657c1988828ea22370b2ebdaed58577402c945b5c7375e5e28e704ecb55",
+    "artifacts/af74354b-72fe-4a28-8bee-d7254cb7b703.txt": "02acc6cb39944ef78ee26c9998b63d176cf0e78f3f52de9f0b12be8e9ff39708",
+    "artifacts/d409f179-dc88-41e6-891f-4cde4acc2884.txt": "a35720a1fa730965ab9325e7f69959700a21ce2612b855f0c569fbad5a1ce854",
+    "artifacts/e2646201-b0c0-4d03-b37c-8f408e8a5fb2.txt": "8cac7a7ea0f390589c86c27fecf19b215cd35bf4a3f8081d76297395ae3c559a",
+    "artifacts/process-582fab7f-f7bb-4bcb-ad55-c55aea12ba0c/804cce74-edb1-44dc-bcc3-6f2fb479c223.stderr.log": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    "artifacts/process-582fab7f-f7bb-4bcb-ad55-c55aea12ba0c/804cce74-edb1-44dc-bcc3-6f2fb479c223.stdout.log": "a35b6ca31f7f3aa84ce0d22b362c68a5c4676667e07394f98b5bb70531825517",
+    "events.jsonl": "52aaedf2b39341c0b45d08400f6fe6272b81276a537020f8fccec995c8928e1c"
+  },
+  "invocation": {
+    "tool": "exec",
+    "arguments": {
+      "executable": "whoami",
+      "args": []
+    }
+  },
+  "observed_result": {
+    "stdout_excerpt": "alec\n",
+    "stdout_bytes": 5,
+    "stderr_excerpt": "",
+    "stderr_bytes": 0,
+    "exit_code": 0,
+    "termination": "exited",
+    "output_complete": true,
+    "output_errors": [],
+    "stdout_truncated": false,
+    "stderr_truncated": false,
+    "descendants": "unix_process_group: group_absent_observed; escaped_descendants_untracked"
+  },
+  "verification_root_relative_to_workspace": ".friendo/released-v0.1.0-live-pje5w06w",
+  "goal": "Call the exec tool exactly once with executable \"whoami\" and args []. Do not set env_refs, stdin, or cwd. Do not call shell, session, or any other command. Then report the exact observed stdout, exit_code, and output_complete from the tool result; do not invent any observation.",
+  "constraint": "This is a harmless installed-release verification. Run only the single requested whoami invocation. Do not request, inspect, or output environment variables or credentials. Do not modify user files. friendo may persist its own journal and artifacts.",
+  "limits": [
+    "One bounded live installed-release text/tool loop on macOS/aarch64; not all models or OS platforms.",
+    "Known credential byte-form scan; not universal sensitive-data detection.",
+    "No claim that retained body reveals provider-internal context or verifies semantic agreement."
+  ]
+}

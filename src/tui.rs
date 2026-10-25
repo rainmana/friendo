@@ -23,6 +23,8 @@ use std::{
     time::{Duration, Instant},
 };
 
+mod chat;
+
 const CYAN: Color = Color::Rgb(55, 235, 235);
 const PINK: Color = Color::Rgb(249, 88, 198);
 const AMBER: Color = Color::Rgb(249, 190, 72);
@@ -39,8 +41,17 @@ const OPERATIONS: [(&str, &str); 5] = [
     ("Sync", "synchronization"),
 ];
 
-#[derive(Default)]
+#[derive(Clone, Default)]
 pub struct View {
+    pub chat: bool,
+    pub read_only: bool,
+    pub chat_selected: Option<String>,
+    pub chat_expanded: BTreeSet<String>,
+    pub chat_scroll: u16,
+    pub compact_map: bool,
+    pub map_focus: bool,
+    pub preview: String,
+    pub draft: String,
     pub tab: usize,
     pub lens: usize,
     pub selected: Option<String>,
@@ -72,6 +83,13 @@ impl View {
             effects: "full".into(),
             color: true,
             ..Self::default()
+        }
+    }
+    pub fn for_mode(mode: &str) -> Self {
+        Self {
+            chat: mode == "chat",
+            composer: (mode == "chat").then(String::new),
+            ..Self::new()
         }
     }
     fn nodes<'a>(&self, state: &'a State) -> Vec<&'a Node> {
@@ -128,6 +146,7 @@ pub async fn run(
     mut events: Vec<Event>,
     dir: PathBuf,
     read_only: bool,
+    config: &crate::config::Config,
 ) -> Result<()> {
     if !io::stdout().is_terminal() || !io::stdin().is_terminal() {
         anyhow::bail!("TUI requires a terminal; use --headless for scripted operation");
@@ -151,16 +170,18 @@ pub async fn run(
         event::EnableBracketedPaste
     )?;
     let mut terminal = Terminal::new(CrosstermBackend::new(io::stdout()))?;
-    let mut view = View::new();
-    if let Some(r) = &runtime {
-        if r.state().demo {
-            view.lens = 1;
-        }
-        view.effects = r.config.effects.clone();
-        view.color = r.config.color;
-        view.list = r.config.layout == "list";
+    let mut view = View::for_mode(&config.ui_mode);
+    view.effects = config.effects.clone();
+    view.color = config.color;
+    view.list = config.layout == "list";
+    view.read_only = read_only;
+    if let Some(r) = &runtime
+        && r.state().demo
+    {
+        view.lens = 1;
     }
     if read_only {
+        view.composer = None;
         view.review = Some(events.len());
         view.toast =
             "READ-ONLY REVIEW / [ ] move through retained events; tools cannot execute".into();
@@ -199,6 +220,7 @@ pub async fn run(
                 dirty = true;
                 last_preview = preview.clone();
             }
+            view.preview = preview.clone();
             if !preview.is_empty() {
                 state.status = format!("STREAMING / {}", excerpt(&preview, 500));
             }
@@ -263,10 +285,7 @@ pub async fn run(
                 _ => {}
             }
         }
-        tokio::time::sleep(Duration::from_millis(
-            1000 / runtime.as_ref().map(|r| r.config.fps).unwrap_or(30),
-        ))
-        .await;
+        tokio::time::sleep(Duration::from_millis(1000 / config.fps)).await;
     }
     Ok(())
 }
@@ -279,13 +298,47 @@ async fn handle_key(
     mutable: bool,
     dir: &std::path::Path,
 ) -> Result<bool> {
+    let composer = view.composer.clone();
+    let repair = view.repair.clone();
+    let result = handle_key_inner(view, key, state, events, runtime, mutable, dir).await;
+    if result.is_err() {
+        view.composer = composer;
+        view.repair = repair;
+    }
+    result
+}
+async fn handle_key_inner(
+    view: &mut View,
+    key: KeyEvent,
+    state: &State,
+    events: &[Event],
+    runtime: Option<&Runtime>,
+    mutable: bool,
+    dir: &std::path::Path,
+) -> Result<bool> {
+    if key.code == KeyCode::F(2) {
+        view.chat = !view.chat;
+        view.scroll = 0;
+        if view.chat && mutable && view.composer.is_none() && view.repair.is_none() {
+            view.composer = Some(std::mem::take(&mut view.draft));
+        }
+        return Ok(false);
+    }
     if key.modifiers.contains(KeyModifiers::CONTROL) && key.code == KeyCode::Char('c') {
+        if !mutable {
+            view.toast = "REVIEW / interruption cannot change the live controller".into();
+            return Ok(false);
+        }
         if let Some(r) = runtime {
             let logged = r.cancel("Ctrl-C");
             r.interrupt_sessions().await?;
             logged?;
         }
-        view.composer = None;
+        if !view.chat
+            && let Some(draft) = view.composer.take()
+        {
+            view.draft = draft;
+        }
         view.repair = None;
         view.toast = "INTERRUPT REQUESTED / waiting for executor observation".into();
         return Ok(false);
@@ -303,10 +356,82 @@ async fn handle_key(
         }
         return Ok(false);
     }
+    if view.chat {
+        match key.code {
+            KeyCode::F(3) => {
+                let limit = view.review.unwrap_or(events.len()).min(events.len());
+                let cards = crate::conversation::project(&events[..limit]);
+                if let Some(card) = cards
+                    .iter()
+                    .find(|c| Some(&c.id) == view.chat_selected.as_ref())
+                    .or_else(|| cards.last())
+                {
+                    view.retained = serde_json::to_string_pretty(&serde_json::json!({
+                        "kind": format!("{:?}", card.kind), "text": card.text,
+                        "source_event": card.source_event, "outcome_event": card.outcome_event,
+                        "revision": card.revision, "invocation": card.invocation, "result": card.result,
+                    }))?;
+                } else {
+                    view.retained = "No conversation evidence has been recorded yet.".into();
+                }
+                view.inspect = true;
+                view.scroll = 0;
+                return Ok(false);
+            }
+            KeyCode::F(4) if view.repair.is_none() => {
+                if mutable {
+                    if let Some(draft) = view.composer.take() {
+                        view.draft = draft;
+                    }
+                    view.repair = Some(state.goal.clone());
+                    view.operation = 3;
+                } else {
+                    view.toast = "REVIEW / corrections cannot change the live controller".into();
+                }
+                return Ok(false);
+            }
+            KeyCode::F(5) => {
+                view.retained = format!(
+                    "ACTUAL OUTBOUND BODY\n{}",
+                    retained_file(dir, &state.last_context)
+                        .unwrap_or_else(|e| format!("retained body unavailable: {e}"))
+                );
+                view.inspect = true;
+                view.scroll = 0;
+                return Ok(false);
+            }
+            KeyCode::F(6) if view.repair.is_none() => {
+                view.map_focus = !view.map_focus;
+                if view.map_focus {
+                    if let Some(draft) = view.composer.take() {
+                        view.draft = draft;
+                    }
+                } else if mutable && view.composer.is_none() {
+                    view.composer = Some(std::mem::take(&mut view.draft));
+                }
+                return Ok(false);
+            }
+            KeyCode::PageUp if view.repair.is_none() => {
+                view.chat_scroll = view.chat_scroll.saturating_add(8);
+                return Ok(false);
+            }
+            KeyCode::PageDown if view.repair.is_none() => {
+                view.chat_scroll = view.chat_scroll.saturating_sub(8);
+                return Ok(false);
+            }
+            _ => {}
+        }
+    }
     if view.composer.is_some() || view.repair.is_some() {
+        if key.code == KeyCode::Enter && !mutable {
+            view.toast = "REVIEW / submit is unavailable; the draft is preserved".into();
+            return Ok(false);
+        }
         match key.code {
             KeyCode::Esc => {
-                view.composer = None;
+                if let Some(draft) = view.composer.take() {
+                    view.draft = draft;
+                }
                 view.repair = None;
             }
             KeyCode::Tab if view.repair.is_some() => view.operation = (view.operation + 1) % 5,
@@ -320,6 +445,13 @@ async fn handle_key(
                     && s.len() < 65536
                 {
                     s.push(c);
+                }
+            }
+            KeyCode::Enter if key.modifiers.contains(KeyModifiers::SHIFT) => {
+                if let Some(text) = view.composer.as_mut().or(view.repair.as_mut())
+                    && text.len() < 65536
+                {
+                    text.push('\n');
                 }
             }
             KeyCode::Enter => {
@@ -414,10 +546,91 @@ async fn handle_key(
                         }
                     }
                 }
+                if view.chat {
+                    view.map_focus = false;
+                    view.composer = Some(std::mem::take(&mut view.draft));
+                    view.chat_scroll = 0;
+                }
             }
             _ => {}
         }
         return Ok(false);
+    }
+    if view.chat {
+        match key.code {
+            KeyCode::Char('q') => return Ok(true),
+            KeyCode::Char('?') => view.help = true,
+            KeyCode::Char('i') if mutable => {
+                view.map_focus = false;
+                view.composer = Some(std::mem::take(&mut view.draft));
+            }
+            KeyCode::Esc => {
+                view.review = None;
+                view.map_focus = false;
+            }
+            KeyCode::Char('[') => {
+                view.review = Some(view.review.unwrap_or(events.len()).saturating_sub(1))
+            }
+            KeyCode::Char(']') => {
+                let n = view.review.unwrap_or(events.len()).saturating_add(1);
+                view.review = if n > events.len() { None } else { Some(n) };
+            }
+            KeyCode::Up | KeyCode::Down if !view.map_focus => {
+                let limit = view.review.unwrap_or(events.len()).min(events.len());
+                let cards = crate::conversation::project(&events[..limit]);
+                if !cards.is_empty() {
+                    let index = cards
+                        .iter()
+                        .position(|c| Some(&c.id) == view.chat_selected.as_ref())
+                        .unwrap_or(cards.len() - 1);
+                    let next = if key.code == KeyCode::Up {
+                        index.saturating_sub(1)
+                    } else {
+                        (index + 1).min(cards.len() - 1)
+                    };
+                    let card = &cards[next];
+                    view.chat_selected = Some(card.id.clone());
+                    if let Some(node) = state.nodes.get(&card.id) {
+                        view.selected = Some(node.id.clone());
+                        view.lens = LENSES.iter().position(|l| *l == node.lens).unwrap_or(0);
+                    }
+                }
+            }
+            KeyCode::Enter if !view.map_focus => {
+                let limit = view.review.unwrap_or(events.len()).min(events.len());
+                let cards = crate::conversation::project(&events[..limit]);
+                if let Some(card) = cards
+                    .iter()
+                    .find(|c| Some(&c.id) == view.chat_selected.as_ref())
+                    .or_else(|| cards.last())
+                {
+                    view.chat_selected = Some(card.id.clone());
+                    if !view.chat_expanded.remove(&card.id) {
+                        view.chat_expanded.insert(card.id.clone());
+                    }
+                }
+            }
+            _ if view.map_focus => {}
+            _ => return Ok(false),
+        }
+        // Map navigation reuses Expert's spatial controls, but Chat never falls
+        // through to its authority-changing letter shortcuts.
+        if !view.map_focus
+            || !matches!(
+                key.code,
+                KeyCode::Tab
+                    | KeyCode::Enter
+                    | KeyCode::Left
+                    | KeyCode::Right
+                    | KeyCode::Up
+                    | KeyCode::Down
+                    | KeyCode::Char(
+                        'j' | 'k' | 'v' | 'c' | '/' | '.' | 'd' | '+' | '=' | '-' | 'f' | 'a' | '0'
+                    )
+            )
+        {
+            return Ok(false);
+        }
     }
     let repair_key = runtime
         .and_then(|r| r.config.keys.get("repair"))
@@ -435,7 +648,9 @@ async fn handle_key(
         .and_then(|r| r.config.keys.get("pin"))
         .map(String::as_str)
         .unwrap_or("p");
-    if let KeyCode::Char(c) = key.code {
+    if !view.chat
+        && let KeyCode::Char(c) = key.code
+    {
         let text = c.to_string();
         if text == repair_key {
             if mutable {
@@ -533,7 +748,7 @@ async fn handle_key(
             let n = view.review.unwrap_or(events.len()).saturating_add(1);
             view.review = if n > events.len() { None } else { Some(n) };
         }
-        KeyCode::Char('i') if mutable => view.composer = Some(String::new()),
+        KeyCode::Char('i') if mutable => view.composer = Some(std::mem::take(&mut view.draft)),
         KeyCode::Char(' ') if mutable && state.demo => {
             let r = runtime.unwrap();
             if !state.nodes.contains_key("answer") {
@@ -553,6 +768,8 @@ async fn handle_key(
             } else if let Some(node) = view.selected(state) {
                 if node.kind == "artifact" {
                     retained_file(dir, &node.detail).unwrap_or_else(|e| format!("SOURCE GAP: {e}"))
+                } else if view.chat {
+                    serde_json::to_string_pretty(node)?
                 } else {
                     String::new()
                 }
@@ -608,7 +825,26 @@ fn position(node: &Node, events: &[Event]) -> (f64, f64) {
     let i = ids.iter().position(|id| *id == node.id).unwrap_or(0);
     ((i % 3) as f64 * 62. - 62., 24. - (i / 3) as f64 * 27.)
 }
+fn map_label(text: &str, cells: usize) -> String {
+    let clean = sanitize(text);
+    if Span::raw(&clean).width() <= cells {
+        return clean;
+    }
+    let mut label = String::new();
+    for character in clean.chars() {
+        if Span::raw(&label).width() + Span::raw(character.to_string()).width() + 1 > cells {
+            break;
+        }
+        label.push(character);
+    }
+    label.push('…');
+    label
+}
 pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
+    if view.chat {
+        chat::render(f, state, events, view);
+        return;
+    }
     let area = f.area();
     f.render_widget(
         Block::default().style(Style::default().bg(INK).fg(WHITE)),
@@ -641,9 +877,9 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
         Span::styled(" / CONTAINMENT IS A METAPHOR ", Style::default().fg(DIM)),
         Span::styled(
             if state.demo {
-                " OFFLINE DEMO / SYNTHETIC "
+                " EXPERT / OFFLINE DEMO / SYNTHETIC "
             } else {
-                " NATIVE AGENT CONSOLE "
+                " EXPERT / NATIVE AGENT CONSOLE "
             },
             Style::default().fg(AMBER),
         ),
@@ -904,7 +1140,7 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
     f.render_widget(
         Paragraph::new(sanitize(&prompt)).block(panel(
             if view.composer.is_some() {
-                " COMPOSER / Enter submit · Esc discard ".into()
+                " COMPOSER / Enter submit · Esc browse ".into()
             } else {
                 format!(" COMMAND BUS / i compose · {repair_key} Rewire · Ctrl-C interrupt ")
             },
@@ -912,7 +1148,7 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
         )),
         rows[4],
     );
-    f.render_widget(Paragraph::new(if area.width<90{"? help  q quit  Tab lens  j/k select  Enter inspect".to_owned()}else{format!("? help  q quit  i compose  {repair_key} Rewire  {yolo_key} YOLO  Tab lens  j/k select  {trace_key} trace  d impact  [ ] history  Space demo")}).style(Style::default().fg(DIM)),rows[5]);
+    f.render_widget(Paragraph::new(if area.width<90{"F2 Chat  ? help  q quit  Tab lens  j/k select".to_owned()}else{format!("F2 Chat  ? help  q quit  i compose  {repair_key} Rewire  {yolo_key} YOLO  Tab lens  j/k select  {trace_key} trace  d impact  [ ] history  Space demo")}).style(Style::default().fg(DIM)),rows[5]);
     if view.help {
         overlay(
             f,
@@ -993,7 +1229,7 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
     }
 }
 fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: &View) {
-    let wide = area.width >= 100;
+    let wide = !view.compact_map && area.width >= 100;
     let parts = Layout::horizontal([
         Constraint::Percentage(if wide { 70 } else { 100 }),
         Constraint::Percentage(if wide { 30 } else { 0 }),
@@ -1002,7 +1238,7 @@ fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: 
     let title = format!(
         " {} / {} / {} nodes / {} ",
         LENSES[view.lens].to_uppercase(),
-        if view.list || area.width < 90 {
+        if view.list || (!view.compact_map && area.width < 90) {
             "LIST"
         } else {
             "TOPOLOGY"
@@ -1010,7 +1246,7 @@ fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: 
         view.nodes(state).len(),
         ["all", "stale", "artifacts", "claims", "synthetic"][view.filter]
     );
-    if view.list || area.width < 90 {
+    if view.list || (!view.compact_map && area.width < 90) {
         let list = List::new(
             view.nodes(state)
                 .iter()
@@ -1049,6 +1285,15 @@ fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: 
         };
         let x = 110. / view.zoom;
         let y = 50. / view.zoom;
+        // Adjacent columns are 62 world units apart. Reserve four cells for
+        // selection/icon markers so compact labels cannot paint over neighbours.
+        let label_cells = if view.compact_map {
+            ((f64::from(parts[0].width.saturating_sub(2)) * 62. / (2. * x)) as usize)
+                .saturating_sub(5)
+                .max(1)
+        } else {
+            22
+        };
         let canvas = Canvas::default()
             .block(panel(title, CYAN))
             .marker(symbols::Marker::Braille)
@@ -1135,7 +1380,11 @@ fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: 
                             format!(
                                 "{} {icon} {}",
                                 if selected { "▶" } else { " " },
-                                short_label(&sanitize(&n.label))
+                                if view.compact_map {
+                                    map_label(&n.label, label_cells)
+                                } else {
+                                    short_label(&sanitize(&n.label))
+                                }
                             ),
                             Style::default()
                                 .fg(if selected { WHITE } else { color })
@@ -1146,18 +1395,27 @@ fn render_map(f: &mut Frame, area: Rect, state: &State, events: &[Event], view: 
                                 }),
                         ),
                     );
-                    ctx.print(
-                        px - 5.,
-                        py - 5.,
-                        Span::styled(
-                            format!(
-                                "{}{}",
-                                if n.stale { "STALE / " } else { "" },
-                                if n.synthetic { "SYNTHETIC" } else { &n.kind }
+                    if !view.compact_map || parts[0].height >= 10 {
+                        ctx.print(
+                            px - 5.,
+                            py - 5.,
+                            Span::styled(
+                                map_label(
+                                    &format!(
+                                        "{}{}",
+                                        if n.stale { "STALE / " } else { "" },
+                                        if n.synthetic { "SYNTHETIC" } else { &n.kind }
+                                    ),
+                                    if view.compact_map {
+                                        label_cells + 4
+                                    } else {
+                                        usize::MAX
+                                    },
+                                ),
+                                Style::default().fg(DIM),
                             ),
-                            Style::default().fg(DIM),
-                        ),
-                    );
+                        );
+                    }
                 }
             });
         f.render_widget(canvas, parts[0]);
@@ -1239,13 +1497,243 @@ fn event_label(e: &Event) -> String {
         ),
     }
 }
-const HELP: &str = "NAVIGATION\n1 topology · 2 intent · 3 evidence · 4 context · 5 config\nTab lens: Runtime / Coordination / Evidence / Domain (synthetic fixture)\nj/k select · Enter inspector · v list alternative · c collapse process/request groups\nArrow keys pan · +/- zoom · f focus selected · a focus latest work · 0 reset camera\n/ node filter: all/stale/artifact/claim/synthetic · . edge filter: all/depends_on/supports/produced\nt upstream trace · d downstream impact (recorded edges only)\n[ previous event · ] next event (past end returns live) · Esc return live\nPageUp/PageDown scroll main inspectors · arrows scroll overlay\n\nOPERATION\ni command composer · Enter submit · /continue resumes using current context\n/conflict <text> records an unresolved human-reported interpretation conflict\n/tool JSON submits a direct tool call {id,name,arguments} through the same execution policy\n/ack explicitly acknowledges current interpretation · /constraints [JSON_STRING_ARRAY] replaces constraints\n/report canonical_mode text records a possible failure with human-report provenance\nr Rewire · Tab picks Ground/Expand/Prioritize/Split/Sync · edit correction · Enter applies\np pins selected source detail (next outbound requests; inspector shows inclusion)\ny toggles NORMAL/YOLO (only direct user or config can change autonomy)\nSpace advances credential-free guided demo; r applies exported-only repair\nCtrl-C interrupts the active turn and retained sessions; q quits and terminates retained sessions\n\nPOLICY AND EVIDENCE\nYOLO permits bounded assumptions under the same executor policy; explicit constraints stay.\nNormal pauses dependent work for explicit unresolved conflicts. Semantic conflict detection is unavailable.\nReview is read-only. Returning live never reruns an action automatically.\nRewire receipts concern recorded delivery, interpretation, and declared checks. MCW is emergent, not stored.\nProvider-internal context and unreported pricing are unknown.\nPTY terminal emulation, network discovery, resume/rerun/fork are unavailable in this milestone.\n\nCONFIGURATION\nfriendo.toml configures provider aliases, models, endpoints, system prompt, tool admission/limits,\nvisual effects off/reduced/full/overdrive, color, FPS, map/list layout, and r/y/t/p remaps.\nFile edits apply on next run; command line overrides file values. Runtime y applies at next dispatch.\nNo tool output or imported source can mutate user configuration.";
+const HELP: &str = "NAVIGATION\nF2 switches Chat/Expert presentation; drafts, run, and execution authority stay the same\n1 topology · 2 intent · 3 evidence · 4 context · 5 config\nTab lens: Runtime / Coordination / Evidence / Domain (synthetic fixture)\nj/k select · Enter inspector · v list alternative · c collapse process/request groups\nArrow keys pan · +/- zoom · f focus selected · a focus latest work · 0 reset camera\n/ node filter: all/stale/artifact/claim/synthetic · . edge filter: all/depends_on/supports/produced\nt upstream trace · d downstream impact (recorded edges only)\n[ previous event · ] next event (past end returns live) · Esc return live\nPageUp/PageDown scroll main inspectors · arrows scroll overlay\n\nOPERATION\ni command composer · Enter submit · /continue resumes using current context\n/conflict <text> records an unresolved human-reported interpretation conflict\n/tool JSON submits a direct tool call {id,name,arguments} through the same execution policy\n/ack explicitly acknowledges current interpretation · /constraints [JSON_STRING_ARRAY] replaces constraints\n/report canonical_mode text records a possible failure with human-report provenance\nr Rewire · Tab picks Ground/Expand/Prioritize/Split/Sync · edit correction · Enter applies\np pins selected source detail (next outbound requests; inspector shows inclusion)\ny toggles NORMAL/YOLO (only direct user or config can change autonomy)\nSpace advances credential-free guided demo; r applies exported-only repair\nCtrl-C interrupts the active turn and retained sessions; q quits and terminates retained sessions\n\nPOLICY AND EVIDENCE\nYOLO permits bounded assumptions under the same executor policy; explicit constraints stay.\nNormal pauses dependent work for explicit unresolved conflicts. Semantic conflict detection is unavailable.\nReview is read-only. Returning live never reruns an action automatically.\nRewire receipts concern recorded delivery, interpretation, and declared checks. MCW is emergent, not stored.\nProvider-internal context and unreported pricing are unknown.\nPTY terminal emulation, network discovery, resume/rerun/fork are unavailable in this milestone.\n\nCONFIGURATION\nfriendo.toml configures provider aliases, models, endpoints, system prompt, tool admission/limits,\nvisual effects off/reduced/full/overdrive, color, FPS, map/list layout, and r/y/t/p remaps.\nFile edits apply on next run; command line overrides file values. Runtime y applies at next dispatch.\nNo tool output or imported source can mutate user configuration.";
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::config::Config;
     use ratatui::backend::TestBackend;
+    #[tokio::test]
+    async fn chat_correction_from_the_map_restores_draft_and_consistent_focus() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), true).unwrap();
+        r.seed_demo().unwrap();
+        r.demo_reveal().unwrap();
+        r.demo_correct().unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let state = r.state();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::for_mode("chat");
+        view.composer = Some("keep me".into());
+        for code in [KeyCode::F(6), KeyCode::F(4), KeyCode::Enter] {
+            handle_key(
+                &mut view,
+                KeyEvent::new(code, KeyModifiers::NONE),
+                &state,
+                &events,
+                Some(&r),
+                true,
+                &dir,
+            )
+            .await
+            .unwrap();
+        }
+        assert!(!view.map_focus, "restored composer must own input focus");
+        assert_eq!(view.composer.as_deref(), Some("keep me"));
+        for code in [KeyCode::Char('!'), KeyCode::F(6), KeyCode::F(6)] {
+            handle_key(
+                &mut view,
+                KeyEvent::new(code, KeyModifiers::NONE),
+                &state,
+                &events,
+                Some(&r),
+                true,
+                &dir,
+            )
+            .await
+            .unwrap();
+        }
+        assert_eq!(view.composer.as_deref(), Some("keep me!"));
+    }
+    #[tokio::test]
+    async fn chat_typing_and_browsing_letters_cannot_change_autonomy_or_dispatch() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), false).unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let state = r.state();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::for_mode("chat");
+        for c in "qyr café 🦀".chars() {
+            assert!(
+                !handle_key(
+                    &mut view,
+                    KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE),
+                    &state,
+                    &events,
+                    Some(&r),
+                    true,
+                    &dir
+                )
+                .await
+                .unwrap()
+            );
+        }
+        handle_key(
+            &mut view,
+            KeyEvent::new(KeyCode::Enter, KeyModifiers::SHIFT),
+            &state,
+            &events,
+            Some(&r),
+            true,
+            &dir,
+        )
+        .await
+        .unwrap();
+        assert_eq!(view.composer.as_deref(), Some("qyr café 🦀\n"));
+        handle_key(
+            &mut view,
+            KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE),
+            &state,
+            &events,
+            Some(&r),
+            true,
+            &dir,
+        )
+        .await
+        .unwrap();
+        for c in ['y', 'r', 'p'] {
+            handle_key(
+                &mut view,
+                KeyEvent::new(KeyCode::Char(c), KeyModifiers::NONE),
+                &state,
+                &events,
+                Some(&r),
+                true,
+                &dir,
+            )
+            .await
+            .unwrap();
+        }
+        assert!(view.repair.is_none());
+        assert_eq!(view.draft, "qyr café 🦀\n");
+        assert_eq!(
+            serde_json::to_value(&r.store.lock().unwrap().events).unwrap(),
+            serde_json::to_value(&events).unwrap()
+        );
+        assert_eq!(r.state().autonomy, "normal");
+        assert!(!r.busy());
+    }
+    #[tokio::test]
+    async fn chat_details_use_only_the_visible_event_prefix() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), true).unwrap();
+        r.seed_demo().unwrap();
+        let prefix = r.store.lock().unwrap().events.clone();
+        r.demo_correct().unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::for_mode("chat");
+        view.review = Some(prefix.len());
+        let state = State::at(&prefix);
+        handle_key(
+            &mut view,
+            KeyEvent::new(KeyCode::F(3), KeyModifiers::NONE),
+            &state,
+            &events,
+            Some(&r),
+            false,
+            &dir,
+        )
+        .await
+        .unwrap();
+        assert!(view.inspect);
+        assert!(!view.retained.contains("exported"));
+        let detail: serde_json::Value = serde_json::from_str(&view.retained).unwrap();
+        assert_eq!(detail["revision"], 1);
+        assert_eq!(
+            serde_json::to_value(&r.store.lock().unwrap().events).unwrap(),
+            serde_json::to_value(&events).unwrap()
+        );
+    }
+    #[tokio::test]
+    async fn historical_ctrl_c_cannot_append_or_interrupt_the_live_controller() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), false).unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let state = r.state();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::new();
+        view.review = Some(events.len());
+        handle_key(
+            &mut view,
+            KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL),
+            &state,
+            &events,
+            Some(&r),
+            false,
+            &dir,
+        )
+        .await
+        .unwrap();
+        assert_eq!(r.store.lock().unwrap().events.len(), events.len());
+        assert_eq!(r.state().autonomy, "normal");
+    }
+    #[tokio::test]
+    async fn mode_switch_preserves_editor_draft_and_history_without_authority_changes() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), false).unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let state = r.state();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::new();
+        view.composer = Some("qyr λ\nnext line".into());
+        view.review = Some(events.len());
+        handle_key(
+            &mut view,
+            KeyEvent::new(KeyCode::F(2), KeyModifiers::NONE),
+            &state,
+            &events,
+            Some(&r),
+            false,
+            &dir,
+        )
+        .await
+        .unwrap();
+        assert_eq!(view.composer.as_deref(), Some("qyr λ\nnext line"));
+        assert_eq!(view.review, Some(events.len()));
+        assert_eq!(r.store.lock().unwrap().events.len(), events.len());
+        let mut terminal = Terminal::new(TestBackend::new(140, 44)).unwrap();
+        terminal
+            .draw(|f| render(f, &state, &events, &view))
+            .unwrap();
+        let text = terminal
+            .backend()
+            .buffer()
+            .content
+            .iter()
+            .map(|c| c.symbol())
+            .collect::<String>();
+        assert!(
+            text.contains("CHAT"),
+            "F2 must switch to the conversation presentation"
+        );
+    }
+    #[tokio::test]
+    async fn invalid_tool_submission_keeps_the_user_draft() {
+        let root = tempfile::tempdir().unwrap();
+        let r = Runtime::new(root.path(), Config::default(), false).unwrap();
+        let events = r.store.lock().unwrap().events.clone();
+        let state = r.state();
+        let dir = r.store.lock().unwrap().dir.clone();
+        let mut view = View::new();
+        view.composer = Some("/tool {not-json".into());
+        assert!(
+            handle_key(
+                &mut view,
+                KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+                &state,
+                &events,
+                Some(&r),
+                true,
+                &dir
+            )
+            .await
+            .is_err()
+        );
+        assert_eq!(view.composer.as_deref(), Some("/tool {not-json"));
+        assert_eq!(r.store.lock().unwrap().events.len(), events.len());
+    }
     #[tokio::test]
     async fn historical_controls_never_dispatch_or_change_user_state() {
         let root = tempfile::tempdir().unwrap();

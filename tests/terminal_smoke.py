@@ -198,7 +198,7 @@ class Terminal:
 def demo(directory):
     config = directory / "demo.toml"
     config.write_text("effects = 'full'\n")
-    terminal = Terminal(directory, config, ["demo"], "demo")
+    terminal = Terminal(directory, config, ["--ui-mode", "expert", "demo"], "demo")
     try:
         terminal.screen("OFFLINE DEMO")
         terminal.send(b" ")
@@ -301,11 +301,31 @@ model = 'explicit-terminal-fixture'
     terminal = Terminal(directory, config, ["run"], "live-fixture")
     worker = threading.Thread(target=server.serve_forever, daemon=True)
     worker.start()
-    goal = "Inspect harmless café ☃ fixture"
+    goal = "qyr Inspect harmless café ☃ fixture\nPreserve exact input."
     try:
         terminal.screen("AUTONOMY: NORMAL")
-        terminal.compose(goal)
+        terminal.screen("CHAT /")
+        terminal.screen("COMPOSER")
+        terminal.screen("LIVE MAP")
+        terminal.screen("UNDERSTANDING")
+        before = terminal.events()
+        # Chat begins focused. Ordinary q/y/r are input, not quit/autonomy/repair.
+        terminal.send(b"qyr ")
+        terminal.send(b"\x1b[200~" + goal[4:].encode() + b"\x1b[201~")
+        terminal.screen("café")
+        start = len(terminal.text)
+        terminal.send(b"\x1bOQ")  # F2 must work inside the active composer.
+        terminal.screen("EXPERT / NATIVE AGENT CONSOLE", start)
+        start = len(terminal.text)
+        terminal.send(b"\x1bOQ")
+        terminal.screen("CHAT /", start)
+        terminal.screen("café")
+        assert terminal.events() == before, "typing or presentation switches changed the journal"
+        assert not server.requests, "typing or presentation switches dispatched a request"
+        terminal.send(b"\r")
         terminal.event("model_finished", lambda e: e["text"] == "PTY_FINAL_OK")
+        terminal.screen("PTY_FINAL_OK")
+        terminal.screen("COMPOSER")
         events = terminal.events()
         assert len(server.requests) == 2
         results = [e["kind"]["result"] for e in events if e["kind"]["type"] == "tool_finished"]
@@ -316,16 +336,41 @@ model = 'explicit-terminal-fixture'
             journal = next(terminal.runs.glob("*/events.jsonl"))
             assert json.loads((journal.parent / event["kind"]["context"]).read_text()) == request
         assert any(e["kind"].get("statement") == goal for e in events), "Unicode paste changed the goal"
-        # Inspect retained context in the native interface.
+        # Inspect the exact retained request through Chat's discoverable control.
         start = len(terminal.text)
-        terminal.send(b"4\r")
+        terminal.send(b"\x1b[15~")  # F5 works with the composer focused.
+        terminal.screen("ACTUAL OUTBOUND BODY", start)
         terminal.screen("PTY_TOOL_OK", start)
-        # Enter closes the inspector. ESC followed immediately by 1 is an Alt-1 chord.
-        terminal.send(b"\r1")
+        start = len(terminal.text)
+        terminal.send(b"\r")  # Close the context inspector.
+        terminal.screen("COMPOSER / Enter send", start)
+        start = len(terminal.text)
+        terminal.send(b"\x1bOQ")
+        terminal.screen("EXPERT / NATIVE AGENT CONSOLE", start)
+        terminal.screen("COMPOSER / Enter submit", start)
+        start = len(terminal.text)
+        terminal.send(b"\x1b")  # A mode switch may preserve an active composer.
+        terminal.screen("COMMAND BUS /", start)
+        terminal.send(b"1")
         terminal.compose('/constraints ["Preserve original evidence"]')
         terminal.event("constraints", lambda e: e["items"] == ["Preserve original evidence"])
         terminal.send(b"z")
         terminal.event("autonomy", lambda e: e["mode"] == "yolo")
+        # Historical navigation and mode switches remain presentation-only.
+        before = terminal.events()
+        terminal.send(b"[")
+        terminal.screen("REVIEW")
+        start = len(terminal.text)
+        terminal.send(b"\x03")
+        terminal.screen("interruption cannot change", start)
+        terminal.send(b"\x1bOQ")
+        terminal.screen("CHAT /")
+        terminal.send(b"\x1bOQ")
+        terminal.screen("EXPERT / NATIVE AGENT CONSOLE")
+        assert terminal.events() == before, "historical Chat/Expert controls changed the journal"
+        start = len(terminal.text)
+        terminal.send(b"\x1b")
+        terminal.screen("│ LIVE │", start)
         # Remapped Rewire, then correction while a streamed response is held.
         terminal.send(b"x")
         terminal.screen("REWIRE")
@@ -361,8 +406,32 @@ model = 'explicit-terminal-fixture'
         server.shutdown()
         server.server_close()
         worker.join(timeout=5)
+    # The provider thread is stopped before forking a standalone replay process.
+    before_files = {path: path.read_bytes() for path in terminal.runs.rglob("*") if path.is_file()}
+    review = Terminal(directory, config,
+                      ["--effects", "off", "--no-color", "replay", journal.parent.name],
+                      "chat-replay")
+    try:
+        review.screen("CHAT /")
+        review.screen("READ-ONLY REVIEW")
+        review.screen("FX off")
+        assert "\x1b[38;2;" not in review.text and "\x1b[48;2;" not in review.text, "replay ignored --no-color"
+        review.send(b"\x03")
+        review.screen("interruption cannot change")
+        start = len(review.text)
+        review.send(b"\x1bOQ")
+        review.screen("EXPERT / NATIVE AGENT CONSOLE", start)
+        start = len(review.text)
+        review.send(b"\x1bOQ")
+        review.screen("CHAT /", start)
+        review.finish()
+    finally:
+        review.close()
+    after_files = {path: path.read_bytes() for path in terminal.runs.rglob("*") if path.is_file()}
+    assert after_files == before_files, "standalone mode switches/review changed retained run files"
     return {"live_fixture": "passed", "model_requests": 4, "real_tools": 1,
-            "unicode_paste": "passed", "correction_cancel": "passed", "capture": str(terminal.capture)}
+            "unicode_paste": "passed", "chat_focus_and_mode_switch": "passed",
+            "read_only_modes": "passed", "correction_cancel": "passed", "capture": str(terminal.capture)}
 
 
 def main():

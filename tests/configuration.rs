@@ -45,6 +45,64 @@ fn explicit_default_values_retain_their_file_provenance() {
 }
 
 #[test]
+fn older_configuration_defaults_to_chat_without_changing_provider_or_execution() {
+    let root = tempfile::tempdir().unwrap();
+    let config = load(
+        root.path(),
+        "active_provider = 'hosted'\nautonomy = 'normal'\nlayout = 'list'\n[providers.hosted]\nprotocol = 'anthropic'\nendpoint = 'https://api.anthropic.com/v1'\nmodel = 'explicit-existing-model'\napi_key_env = 'EXISTING_CREDENTIAL_REFERENCE'",
+    )
+    .unwrap();
+    let fields = &config.inspector()["fields"];
+    assert_eq!(fields["ui_mode"]["value"], "chat");
+    assert_eq!(
+        fields["ui_mode"]["source"],
+        "built-in (or programmatic API override)"
+    );
+    assert_eq!(fields["layout"]["value"], "list");
+    assert_eq!(config.autonomy, "normal");
+    assert_eq!(config.active_provider, "hosted");
+    assert_eq!(config.provider().unwrap().model, "explicit-existing-model");
+    assert_eq!(
+        config.provider().unwrap().api_key_env.as_deref(),
+        Some("EXISTING_CREDENTIAL_REFERENCE")
+    );
+    assert_eq!(
+        config.execution.allowed_executables,
+        ["echo", "pwd", "whoami"]
+    );
+    assert!(!config.execution.allow_shell);
+}
+
+#[test]
+fn explicit_ui_modes_retain_file_provenance_including_the_default() {
+    let root = tempfile::tempdir().unwrap();
+    for mode in ["chat", "expert"] {
+        let config = load(root.path(), &format!("ui_mode = '{mode}'")).unwrap();
+        let fields = &config.inspector()["fields"];
+        assert_eq!(fields["ui_mode"]["value"], mode);
+        assert_eq!(
+            fields["ui_mode"]["source"],
+            root.path().join("test.toml").display().to_string()
+        );
+        assert_eq!(fields["ui_mode"]["precedence"], "CLI > file > built-in");
+        assert_eq!(config.autonomy, "normal");
+        assert_eq!(config.layout, "map");
+    }
+}
+
+#[test]
+fn ui_mode_rejects_autonomy_layout_and_unknown_values() {
+    let root = tempfile::tempdir().unwrap();
+    for mode in ["", "Chat", "normal", "yolo", "map", "list"] {
+        let error = load(root.path(), &format!("ui_mode = '{mode}'")).unwrap_err();
+        assert!(
+            format!("{error:#}").contains("ui_mode must be chat or expert"),
+            "{mode:?}: {error:#}"
+        );
+    }
+}
+
+#[test]
 fn configuration_rejects_unknown_fields_at_each_boundary() {
     let root = tempfile::tempdir().unwrap();
     for text in [

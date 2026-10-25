@@ -164,6 +164,65 @@ fn absent_default_file_uses_offline_defaults_and_empty_runs_are_read_only() {
 }
 
 #[test]
+fn doctor_reports_ui_mode_from_defaults_and_explicit_files() {
+    for (text, expected, source_is_file) in [
+        ("autonomy = 'normal'\nlayout = 'list'", "chat", false),
+        ("ui_mode = 'chat'", "chat", true),
+        ("ui_mode = 'expert'", "expert", true),
+    ] {
+        let cli = Cli::new(text);
+        let fields = &inspector(&success(cli.run(&["doctor"])))["fields"];
+        assert_eq!(fields["ui_mode"]["value"], expected);
+        assert_eq!(
+            fields["ui_mode"]["source"],
+            if source_is_file {
+                cli.config.display().to_string()
+            } else {
+                "built-in (or programmatic API override)".into()
+            }
+        );
+        assert_eq!(fields["autonomy"]["value"], "normal");
+        assert!(!cli.runs.exists());
+    }
+}
+
+#[test]
+fn global_ui_mode_overrides_file_without_changing_autonomy_layout_or_admission() {
+    for (file_mode, args, expected) in [
+        ("chat", vec!["--ui-mode", "expert", "doctor"], "expert"),
+        ("expert", vec!["doctor", "--ui-mode", "chat"], "chat"),
+    ] {
+        let cli = Cli::new(&format!(
+            "ui_mode = '{file_mode}'\nautonomy = 'normal'\nlayout = 'list'"
+        ));
+        let fields = &inspector(&success(cli.run(&args)))["fields"];
+        assert_eq!(fields["ui_mode"]["value"], expected);
+        assert_eq!(fields["ui_mode"]["source"], "CLI --ui-mode");
+        assert_eq!(fields["autonomy"]["value"], "normal");
+        assert_eq!(fields["layout"]["value"], "list");
+        assert_eq!(
+            fields["execution"]["value"]["allowed_executables"],
+            json!(["echo", "pwd", "whoami"])
+        );
+        assert_eq!(fields["execution"]["value"]["allow_shell"], false);
+        assert!(!cli.runs.exists());
+    }
+}
+
+#[test]
+fn cli_rejects_unknown_ui_modes_before_constructing_a_run() {
+    let cli = Cli::new("");
+    for mode in ["", "Chat", "normal", "map"] {
+        let output = cli.run(&["--ui-mode", mode, "doctor"]);
+        assert!(!output.status.success());
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("--ui-mode"), "{mode:?}: {stderr}");
+        assert!(stderr.contains("chat, expert"), "{mode:?}: {stderr}");
+        assert!(!cli.runs.exists());
+    }
+}
+
+#[test]
 fn cli_rejects_bad_config_missing_goal_and_invalid_run_ids() {
     let cli = Cli::new("unknown = true");
     let output = cli.run(&["doctor"]);
@@ -198,6 +257,41 @@ fn demo_cli_records_a_repaired_synthetic_run_and_lists_it() {
         serde_json::from_str(&success(cli.run(&["replay", id, "--headless"]))).unwrap();
     assert_eq!(state["restored"], true);
     assert_eq!(state["constraints"].as_array().unwrap().len(), 1);
+}
+
+#[test]
+fn chat_replay_snapshot_shows_history_without_an_active_composer_or_future_outcome() {
+    let cli = Cli::new("effects = 'off'");
+    let summary: Value = serde_json::from_str(&success(cli.run(&["demo", "--headless"]))).unwrap();
+    let id = summary["run_id"].as_str().unwrap();
+    let run = cli.runs.join(id);
+    let original = snapshot(&run);
+    let history = friendo::store::recover(&run.join("events.jsonl")).unwrap();
+    let before_completion = history
+        .events
+        .iter()
+        .find(|event| matches!(event.kind, Kind::ToolStarted { .. }))
+        .unwrap()
+        .seq
+        .to_string();
+    let capture = cli.root.path().join("historical-chat.txt");
+    success(cli.run(&[
+        "replay",
+        id,
+        "--at",
+        &before_completion,
+        "--snapshot",
+        capture.to_str().unwrap(),
+        "--ui-mode",
+        "chat",
+    ]));
+    let text = std::fs::read_to_string(capture).unwrap();
+    assert!(text.contains("REVIEW"), "{text}");
+    assert!(!text.contains("Enter submit"), "{text}");
+    assert!(!text.contains('▏'), "{text}");
+    assert!(!text.contains("LINK RESTORED"), "{text}");
+    assert_eq!(snapshot(&run), original);
+    assert!(text.to_lowercase().contains("outcome unknown"), "{text}");
 }
 
 #[test]

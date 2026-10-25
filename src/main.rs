@@ -30,6 +30,9 @@ struct Cli {
     effects: Option<String>,
     #[arg(long, global = true)]
     no_color: bool,
+    /// Initial presentation; independent of autonomy and map/list layout.
+    #[arg(long, global = true, value_parser = ["chat", "expert"])]
+    ui_mode: Option<String>,
     #[command(subcommand)]
     command: Commands,
 }
@@ -107,6 +110,13 @@ async fn main() -> Result<()> {
             .overrides
             .insert("color".into(), "CLI --no-color".into());
     }
+    if let Some(mode) = cli.ui_mode {
+        config.ui_mode = mode;
+        config
+            .overrides
+            .insert("ui_mode".into(), "CLI --ui-mode".into());
+    }
+    let ui_mode = config.ui_mode.clone();
     match cli.command {
         Commands::Doctor => {
             println!("friendo {} / local readiness", env!("CARGO_PKG_VERSION"));
@@ -199,12 +209,20 @@ async fn main() -> Result<()> {
                 }
                 println!("{}", std::fs::read_to_string(canonical)?);
             } else if let Some(path) = snapshot {
-                capture(&path, width, height, &state, &events, config.color)?;
+                capture(
+                    &path,
+                    (width, height),
+                    &state,
+                    &events,
+                    config.color,
+                    &ui_mode,
+                    true,
+                )?;
                 println!("snapshot: {}", path.display());
             } else if headless {
                 println!("{}", serde_json::to_string_pretty(&state)?);
             } else {
-                tui::run(None, events, dir, true).await?;
+                tui::run(None, events, dir, true, &config).await?;
             }
         }
         Commands::Demo {
@@ -226,18 +244,19 @@ async fn main() -> Result<()> {
                     let events = runtime.store.lock().unwrap().events.clone();
                     capture(
                         &path,
-                        width,
-                        height,
+                        (width, height),
                         &runtime.state(),
                         &events,
                         runtime.config.color,
+                        &ui_mode,
+                        false,
                     )?;
                 }
                 print_summary(&runtime);
                 Ok(())
             } else {
                 let dir = runtime.store.lock().unwrap().dir.clone();
-                tui::run(Some(runtime.clone()), vec![], dir, false).await
+                tui::run(Some(runtime.clone()), vec![], dir, false, &runtime.config).await
             };
             runtime.shutdown().await?;
             result?;
@@ -295,7 +314,7 @@ async fn main() -> Result<()> {
                 }
             } else {
                 let dir = runtime.store.lock().unwrap().dir.clone();
-                tui::run(Some(runtime.clone()), vec![], dir, false).await
+                tui::run(Some(runtime.clone()), vec![], dir, false, &runtime.config).await
             };
             runtime.shutdown().await?;
             result?;
@@ -320,17 +339,24 @@ fn print_summary(r: &Runtime) {
 }
 fn capture(
     path: &Path,
-    width: u16,
-    height: u16,
+    size: (u16, u16),
     state: &State,
     events: &[friendo::model::Event],
     color: bool,
+    ui_mode: &str,
+    read_only: bool,
 ) -> Result<()> {
+    let (width, height) = size;
     if width < 20 || height < 8 || width > 300 || height > 100 {
         bail!("snapshot size must be 20..300 by 8..100");
     }
     let mut terminal = Terminal::new(TestBackend::new(width, height))?;
-    let mut view = View::new();
+    let mut view = View::for_mode(ui_mode);
+    if read_only {
+        view.read_only = true;
+        view.review = Some(events.len());
+        view.composer = None;
+    }
     view.lens = 1;
     view.selected = Some("plan".into());
     view.effects = "off".into();
