@@ -1346,6 +1346,16 @@ mod tests {
                 "outside configured",
             ),
             (
+                "exec",
+                json!({"executable":"friendo-fixture","args":["secret","FRIENDO_SECURITY_TEST_UNSET"]}),
+                "outside configured",
+            ),
+            (
+                "session",
+                json!({"operation":"start","executable":"friendo-fixture","args":["session"]}),
+                "outside configured",
+            ),
+            (
                 "shell",
                 json!({"shell":"sh","expression":"echo forbidden"}),
                 "shell evaluation disabled",

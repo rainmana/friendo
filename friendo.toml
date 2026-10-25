@@ -9,7 +9,7 @@ layout = "map"
 
 [execution]
 # Keep the standard admission policy. This is not an operating-system sandbox.
-allowed_executables = ["echo", "pwd", "whoami", "friendo-fixture"]
+allowed_executables = ["echo", "pwd", "whoami"]
 allow_shell = false
 timeout_ms = 30000
 output_limit_bytes = 8388608

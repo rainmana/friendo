@@ -17,6 +17,8 @@ cargo run --locked -- demo
 
 The built executable is `target/debug/friendo` on macOS/Linux and `target\debug\friendo.exe` on Windows. Commands below use `friendo` as shorthand for that executable; `cargo run --locked -- <arguments>` also works. No Node runtime, Python service, GPU workload, or model download is needed.
 
+To install only the application, run `cargo install --path . --locked --bin friendo`. The separate `friendo-fixture` binary is a QA helper with environment-reading commands; it requires explicit execution-policy admission.
+
 ```console
 friendo doctor
 friendo demo --headless
@@ -76,11 +78,11 @@ The first live Anthropic check passed on 2026-10-25 with claude-haiku-5-5 select
 
 ## Execution policy and sessions
 
-Default admission permits executable strings `echo`, `pwd`, `whoami`, and `friendo-fixture`; availability depends on the OS. An absolute path requires that exact path in `execution.allowed_executables`. Arguments are passed as an array. `friendo exec echo -- "hello friendo"` demonstrates argument syntax on hosts with an `echo` executable.
+Default admission permits executable strings `echo`, `pwd`, and `whoami`; availability depends on the OS. An absolute path requires that exact path in `execution.allowed_executables`. Arguments are passed as an array. `friendo exec echo -- "hello friendo"` demonstrates argument syntax on hosts with an `echo` executable.
 
 Shell evaluation is a separate model tool and requires both `execution.allow_shell = true` and admission for the explicitly named shell. `allowed_executables = ["*"]` opts into broad admission. This policy is **not an OS sandbox**: admitted programs retain their ordinary host permissions, and arbitrary task constraints are not automatically provable. YOLO keeps the same admission policy and retained explicit constraints.
 
-The `session` model tool supports `start`, `read`, `write`, `interrupt`, `wait`, and `terminate`. Sessions use native pipes, survive individual model turns in the same application, and have the configured execution timeout (30 seconds by default). They do not survive application exit or provide terminal emulation. To exercise a line-oriented session, make `friendo-fixture` discoverable on `PATH` or admit its exact built path, then ask the model to start it with `args = ["session"]`, read, write `hello\n`, read the reply, and terminate it. Every action and result is recorded.
+The `session` model tool supports `start`, `read`, `write`, `interrupt`, `wait`, and `terminate`. Sessions use native pipes, survive individual model turns in the same application, and have the configured execution timeout (30 seconds by default). They do not survive application exit or provide terminal emulation. For an isolated QA session, explicitly add the exact built path of `friendo-fixture` to `execution.allowed_executables`, then ask the model to start that path with `args = ["session"]`, read, write `hello\n`, read the reply, and terminate it. Every action and result is recorded. The helper can read inherited environment variables; use a test environment and remove its admission afterward.
 
 **Ctrl-C** requests cancellation of the current turn and interruption of all retained sessions. A persistent process also has targeted `session interrupt`/`terminate` operations. **q** quits, cancels active work, and terminates retained sessions. Requested cancellation and observed termination are different records; inspect incomplete outcomes. Shell conventions are handled explicitly for Unix shells, `cmd`, and PowerShell.
 

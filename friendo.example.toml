@@ -10,7 +10,7 @@ layout = "map"     # map | list
 [execution]
 # Names resolve through PATH. An absolute executable requires an exact entry.
 # This is admission policy, not an operating-system sandbox or semantic filter.
-allowed_executables = ["echo", "pwd", "whoami", "friendo-fixture"]
+allowed_executables = ["echo", "pwd", "whoami"]
 allow_shell = false
 timeout_ms = 30000
 output_limit_bytes = 8388608 # per stream; excess drained and reported truncated

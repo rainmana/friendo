@@ -18,7 +18,7 @@ fn partial_configuration_preserves_standard_execution_defaults() {
     assert_eq!(config.execution.output_limit_bytes, 8 * 1024 * 1024);
     assert_eq!(
         config.execution.allowed_executables,
-        ["echo", "pwd", "whoami", "friendo-fixture"]
+        ["echo", "pwd", "whoami"]
     );
     assert!(
         config.provider().is_err(),
@@ -111,6 +111,25 @@ fn remaps_reject_reserved_unknown_multicharacter_and_colliding_bindings() {
 
 #[test]
 fn executable_admission_requires_exact_paths_and_yolo_does_not_expand_it() {
+    let manifest = Path::new(env!("CARGO_MANIFEST_DIR"));
+    for mut config in [
+        Config::default(),
+        Config::load(Some(&manifest.join("friendo.toml"))).unwrap(),
+        Config::load(Some(&manifest.join("friendo.example.toml"))).unwrap(),
+    ] {
+        assert_eq!(config.autonomy, "normal");
+        for mode in ["normal", "yolo"] {
+            config.autonomy = mode.into();
+            assert!(config.allows("echo"));
+            assert!(config.allows("pwd"));
+            assert!(config.allows("whoami"));
+            assert!(
+                !config.allows("friendo-fixture"),
+                "QA fixture admitted in {mode}"
+            );
+            assert!(!config.execution.allow_shell);
+        }
+    }
     let mut config = Config::default();
     let absolute = tempfile::tempdir().unwrap().path().join("echo");
     assert!(config.allows("echo"));

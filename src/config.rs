@@ -40,12 +40,7 @@ pub struct ExecutionPolicy {
 impl Default for ExecutionPolicy {
     fn default() -> Self {
         Self {
-            allowed_executables: vec![
-                "echo".into(),
-                "pwd".into(),
-                "whoami".into(),
-                "friendo-fixture".into(),
-            ],
+            allowed_executables: vec!["echo".into(), "pwd".into(), "whoami".into()],
             allow_shell: false,
             timeout_ms: 30_000,
             output_limit_bytes: 8 * 1024 * 1024,
