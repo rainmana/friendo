@@ -1,0 +1,23 @@
+# Default provider verified through a live model/tool round trip on 2026-10-25.
+active_provider = "anthropic"
+autonomy = "normal"
+effects = "full"
+color = true
+fps = 30
+max_turns = 12
+layout = "map"
+
+[execution]
+# Keep the standard admission policy. This is not an operating-system sandbox.
+allowed_executables = ["echo", "pwd", "whoami", "friendo-fixture"]
+allow_shell = false
+timeout_ms = 30000
+output_limit_bytes = 8388608
+
+[providers.anthropic]
+protocol = "anthropic"
+endpoint = "https://api.anthropic.com/v1"
+model = "claude-haiku-5-5"
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 4096
+options = {}

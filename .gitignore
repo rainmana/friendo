@@ -1,0 +1,8 @@
+/target/
+/.friendo/
+/.claude/
+/.coderlm/
+*.cast
+__pycache__/
+*.profraw
+*.profdata

@@ -1,0 +1,53 @@
+name: manual coverage
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  coverage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
+      - uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: coverage
+      - uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-llvm-cov@0.8.4
+      - name: Measure Rust tests and native terminal journeys together
+        run: |
+          cargo llvm-cov clean --workspace
+          export CARGO_TARGET_DIR="$PWD/target/llvm-cov-target"
+          # Explicit instrumentation also covers binaries launched by the external PTY helper.
+          cargo llvm-cov --no-rustc-wrapper show-env --sh > "$RUNNER_TEMP/friendo-coverage.env"
+          source "$RUNNER_TEMP/friendo-coverage.env"
+          : "${RUSTFLAGS:?coverage flags missing}" "${LLVM_PROFILE_FILE:?profile path missing}"
+          cargo test --all-targets --locked
+          cargo build --locked --bins
+          FRIENDO_BIN="$CARGO_TARGET_DIR/debug/friendo" \
+          FRIENDO_FIXTURE_BIN="$CARGO_TARGET_DIR/debug/friendo-fixture" \
+            python3 tests/terminal_smoke.py
+      - name: Export coverage reports
+        run: |
+          mkdir -p target/coverage
+          cargo llvm-cov report --json --summary-only --output-path target/coverage/summary.json
+          cargo llvm-cov report --lcov --output-path target/coverage/lcov.info
+          cargo llvm-cov report --html --output-dir target/coverage
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: coverage-and-terminal-evidence
+          path: |
+            target/coverage/
+            docs/captures/*.cast
+          retention-days: 7

@@ -1,0 +1,24 @@
+╭ ◇ friendo  / CONTAINMENT IS A METAPHOR  OFFLINE DEMO / SY╮
+│ AUTONOMY: YOLO │ INTENT r2 │ LIVE │ FX off │ COST ?      │
+│ PROVIDER local / deterministic fixture  | EXEC 4 admitted│
+╰──────────────────────────────────────────────────────────╯
+ 1 TOPOLOGY  2 INTENT  3 EVIDENCE  4 CONTEXT  5 CONFIG
+╭ COORDINATION / LIST / 4 nodes / all ─────────────────────╮
+│  [STALE] Inventory symbols in the synthetic local binary │
+│  [●] Inventory exported symbols only; preserve the origin│
+│  [●] exported symbols [SYNTHETIC]                        │
+│▶ [●] export inventory [SYNTHETIC]                        │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+│                                                          │
+╰──────────────────────────────────────────────────────────╯
+╭ EVENT TRACE / append-only ───────────────────────────────╮
+│ 0053 AUTONOMY: YOLO / direct user authority              │
+╰──────────────────────────────────────────────────────────╯
+╭ COMMAND BUS / i compose · r Rewire · Ctrl-C interrupt ───╮
+│LINK RESTORED / recorded revision and declared checks agre│
+╰──────────────────────────────────────────────────────────╯
+? help  q quit  Tab lens  j/k select  Enter inspect

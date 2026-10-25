@@ -1,0 +1,119 @@
+{
+  "schema": 1,
+  "verified_at": "2026-10-25T19:10:57.221114+00:00",
+  "result": "passed",
+  "provider": "anthropic",
+  "endpoint": "https://api.anthropic.com/v1",
+  "model": "claude-haiku-5-5",
+  "credential_reference": "ANTHROPIC_API_KEY",
+  "run_id": "47c58f96-42dc-4ece-857a-2e50314e3d3c",
+  "journal": ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/events.jsonl",
+  "events": 56,
+  "event_counts": {
+    "started": 1,
+    "autonomy": 1,
+    "node": 14,
+    "intent": 1,
+    "artifact": 6,
+    "model_requested": 2,
+    "edge": 20,
+    "delivered": 2,
+    "model_finished": 2,
+    "interpretation": 2,
+    "tool_started": 1,
+    "tool_finished": 1,
+    "check": 1,
+    "repair": 1,
+    "status": 1
+  },
+  "request_contexts": [
+    ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/9e98c6a8-9a07-4814-a770-1a6ef6e68371.txt",
+    ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/8e561ce4-ce9e-463e-9a0e-bb7cb6f21901.txt"
+  ],
+  "native_responses": [
+    ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/a719e7e0-3549-4a2f-b944-c10e225cb527.txt",
+    ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/3019d365-72fc-460f-b479-98c715b3c29d.txt"
+  ],
+  "invocation": {
+    "executable": "/usr/bin/printf",
+    "args": [
+      "FRIENDO_ANTHROPIC_LIVE_OK\n"
+    ],
+    "provider_tool_call_id": "toolu_01MGqhMV9s9HCnWbhUcr4EKs",
+    "invocation_id": "tool-toolu_01MGqhMV9s9HCnWbhUcr4EKs-7a4807be-1555-4ef1-b9ed-88ada67fa6c0"
+  },
+  "process": {
+    "exit_code": 0,
+    "termination": "exited",
+    "stdout": "FRIENDO_ANTHROPIC_LIVE_OK\n",
+    "stdout_bytes": 26,
+    "stderr_bytes": 0,
+    "output_complete": true,
+    "descendants": "unix_process_group: group_absent_observed; escaped_descendants_untracked",
+    "stdout_path": ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/process-5e034d93-6eb2-44ce-a620-d77188b01029/5782ae86-11f0-4634-b6eb-4ad4745ee635.stdout.log",
+    "stderr_path": ".friendo/runs/47c58f96-42dc-4ece-857a-2e50314e3d3c/artifacts/process-5e034d93-6eb2-44ce-a620-d77188b01029/5782ae86-11f0-4634-b6eb-4ad4745ee635.stderr.log"
+  },
+  "provider_reported_usage": [
+    {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "global",
+      "input_tokens": 1293,
+      "output_tokens": 146,
+      "output_tokens_details": {
+        "thinking_tokens": 42
+      },
+      "service_tier": "standard",
+      "speed": "standard"
+    },
+    {
+      "cache_creation": {
+        "ephemeral_1h_input_tokens": 0,
+        "ephemeral_5m_input_tokens": 0
+      },
+      "cache_creation_input_tokens": 0,
+      "cache_read_input_tokens": 0,
+      "inference_geo": "global",
+      "input_tokens": 1843,
+      "output_tokens": 215,
+      "output_tokens_details": {
+        "thinking_tokens": 0
+      },
+      "service_tier": "standard",
+      "speed": "standard"
+    }
+  ],
+  "pricing": "unknown; not calculated",
+  "checks": {
+    "two_streamed_model_requests": true,
+    "one_real_direct_tool": true,
+    "exact_tool_result_delivered": true,
+    "native_continuation_preserved": true,
+    "intent_constraints_preserved": true,
+    "stdout_stderr_match_artifacts": true,
+    "source_and_causal_event_ids_valid": true,
+    "read_only_replay_preserved_all_run_hashes": true,
+    "configured_credential_value_absent": true,
+    "credential_scan_files": 13,
+    "no_live_link_restored_claim": true
+  },
+  "journal_sha256": "6ce3fd9e964fc1f052e662a14f66d53aec9562a1d3beb33a50b8ef45d390ce51",
+  "scope": "One text/tool loop on macOS aarch64. This is not verification of every model, thinking controls, PTYs, or other operating systems.",
+  "native_block_types": [
+    [
+      "thinking",
+      "tool_use"
+    ],
+    [
+      "text"
+    ]
+  ],
+  "native_signed_blocks": [
+    1,
+    0
+  ]
+}

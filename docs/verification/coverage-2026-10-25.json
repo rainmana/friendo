@@ -1,0 +1,142 @@
+{
+  "date": "2026-10-25",
+  "platform": "macos/aarch64",
+  "rustc": "1.98.1 (Homebrew, LLVM 22.1.8)",
+  "cargo_llvm_cov": "0.8.4",
+  "llvm_tools": "Homebrew LLVM 22.1.2",
+  "metric": "LLVM source-file line coverage; inline unit-test code included",
+  "scope": "Workspace src/*.rs excluding src/bin/friendo-fixture.rs, dependencies, generated sources, and Rust standard library",
+  "before": {
+    "rust_tests": 46,
+    "external_terminal_instrumented": false,
+    "raw_report": "target/coverage-before.json",
+    "raw_report_sha256": "c47bdbc20c66b4a4039a1511e0929e192e5c645b26155a55acc8031014cbc570",
+    "application_source_lines": {
+      "covered": 3145,
+      "count": 4648,
+      "percent": 67.66351118760757
+    }
+  },
+  "after": {
+    "rust_tests": 65,
+    "external_terminal_instrumented": true,
+    "terminal_journeys": [
+      "synthetic demo",
+      "loopback fixture live mode"
+    ],
+    "fixture_model_requests": 4,
+    "real_fixture_commands": 1,
+    "raw_report": "target/coverage-after.json",
+    "raw_report_sha256": "5e601936e017bfbf7b5beda68c95df22ef6963af2a8e58c54b268f3e2fdb6c47",
+    "application_source_lines": {
+      "covered": 4232,
+      "count": 4973,
+      "percent": 85.09953750251357
+    }
+  },
+  "files": {
+    "src/config.rs": {
+      "before": {
+        "count": 112,
+        "covered": 79,
+        "percent": 70.53571428571429
+      },
+      "after": {
+        "count": 112,
+        "covered": 110,
+        "percent": 98.21428571428571
+      }
+    },
+    "src/controller.rs": {
+      "before": {
+        "count": 1159,
+        "covered": 957,
+        "percent": 82.5711820534944
+      },
+      "after": {
+        "count": 1323,
+        "covered": 1158,
+        "percent": 87.52834467120182
+      }
+    },
+    "src/main.rs": {
+      "before": {
+        "count": 478,
+        "covered": 0,
+        "percent": 0.0
+      },
+      "after": {
+        "count": 478,
+        "covered": 355,
+        "percent": 74.26778242677824
+      }
+    },
+    "src/model.rs": {
+      "before": {
+        "count": 239,
+        "covered": 200,
+        "percent": 83.68200836820083
+      },
+      "after": {
+        "count": 239,
+        "covered": 206,
+        "percent": 86.19246861924687
+      }
+    },
+    "src/process.rs": {
+      "before": {
+        "count": 529,
+        "covered": 481,
+        "percent": 90.92627599243856
+      },
+      "after": {
+        "count": 529,
+        "covered": 481,
+        "percent": 90.92627599243856
+      }
+    },
+    "src/provider.rs": {
+      "before": {
+        "count": 733,
+        "covered": 669,
+        "percent": 91.268758526603
+      },
+      "after": {
+        "count": 733,
+        "covered": 669,
+        "percent": 91.268758526603
+      }
+    },
+    "src/store.rs": {
+      "before": {
+        "count": 311,
+        "covered": 289,
+        "percent": 92.92604501607717
+      },
+      "after": {
+        "count": 472,
+        "covered": 464,
+        "percent": 98.30508474576273
+      }
+    },
+    "src/tui.rs": {
+      "before": {
+        "count": 1087,
+        "covered": 470,
+        "percent": 43.23827046918123
+      },
+      "after": {
+        "count": 1087,
+        "covered": 789,
+        "percent": 72.58509659613615
+      }
+    }
+  },
+  "limits": [
+    "macOS execution only",
+    "not branch coverage or assertion-quality proof",
+    "inline unit-test additions change source-file denominators",
+    "baseline used Rust tests; follow-up adds external terminal journeys",
+    "no hosted workflow dispatched"
+  ]
+}

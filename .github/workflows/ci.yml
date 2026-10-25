@@ -1,0 +1,68 @@
+name: native verification
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+defaults:
+  run:
+    shell: bash
+env:
+  CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
+jobs:
+  checks:
+    name: Linux checks and terminal journeys
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: mkdir -p target/qa
+      - run: bash scripts/check.sh 2>&1 | tee target/qa/checks.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: linux-failure-evidence
+          path: |
+            target/qa/*.log
+            docs/captures/*.cast
+          retention-days: 7
+  native:
+    needs: checks
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+      - uses: Swatinem/rust-cache@v2
+      - run: mkdir -p target/qa
+      # Native Clippy covers platform-specific cfg branches that Linux cannot compile.
+      - run: cargo clippy --all-targets --locked -- -D warnings 2>&1 | tee target/qa/clippy.log
+      - run: cargo test --all-targets --locked 2>&1 | tee target/qa/tests.log
+      - if: runner.os != 'Windows'
+        run: cargo build --locked --bins 2>&1 | tee target/qa/build.log
+      - if: runner.os != 'Windows'
+        run: python3 tests/terminal_smoke.py 2>&1 | tee target/qa/terminal.log
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: native-failure-evidence-${{ matrix.os }}
+          path: |
+            target/qa/*.log
+            docs/captures/*.cast
+          retention-days: 7

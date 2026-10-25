@@ -1,0 +1,38 @@
+# Copy to friendo.toml. Explicit placeholders: supply your own model identifiers.
+active_provider = "local"
+autonomy = "normal" # "yolo" suppresses discretionary conflict pauses; policy stays.
+effects = "full"   # off | reduced | full | overdrive
+color = true
+fps = 30
+max_turns = 12
+layout = "map"     # map | list
+
+[execution]
+# Names resolve through PATH. An absolute executable requires an exact entry.
+# This is admission policy, not an operating-system sandbox or semantic filter.
+allowed_executables = ["echo", "pwd", "whoami", "friendo-fixture"]
+allow_shell = false
+timeout_ms = 30000
+output_limit_bytes = 8388608 # per stream; excess drained and reported truncated
+
+[keys]
+repair = "r"
+yolo = "y"
+trace = "t"
+pin = "p"
+
+[providers.local]
+protocol = "openai"
+endpoint = "http://127.0.0.1:1234/v1"
+model = "REPLACE_WITH_YOUR_LOCAL_MODEL_ID"
+max_tokens = 4096
+options = {}
+# api_key_env = "LOCAL_MODEL_API_KEY"
+
+[providers.hosted]
+protocol = "anthropic"
+endpoint = "https://api.anthropic.com/v1"
+model = "REPLACE_WITH_YOUR_ANTHROPIC_MODEL_ID"
+api_key_env = "ANTHROPIC_API_KEY"
+max_tokens = 4096
+options = {}
