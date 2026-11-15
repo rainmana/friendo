@@ -1,6 +1,25 @@
-# Build status — 2026-10-25
+# Build status — 2026-11-14
 
-Runnable local v0.1.0 vertical slice. Native Rust/Ratatui application with a shared controller for TUI, headless model runs, and direct command execution. No model download, Node service, Python service, publication, deployment, or account change is part of operation.
+The published baseline is **v0.2.0**, with Chat and Expert modes. It is installed on this Apple Silicon Mac. Native Rust/Ratatui application with a shared controller for TUI, headless model runs, and direct command execution. No model download, Node service, or Python service is needed for operation.
+
+## Local verification checkpoint — 2026-11-14
+
+- The installed v0.2.0 binary and cached Apple Silicon release archive still match their verified SHA-256 digests. The existing configuration remains Anthropic `claude-haiku-5-5`, the `ANTHROPIC_API_KEY` reference, NORMAL autonomy, shell disabled, and the standard `echo`/`pwd`/`whoami` admission list.
+- A fresh **live** installed-release check on 2026-11-14 passed: two Anthropic requests, exactly one `whoami` invocation, `alec\n` on stdout, exit 0, and complete capture. All 56 journal events passed identity/sequence/causality checks. Native continuation and the exact tool result matched the second retained request. Credential-free full/context/pre-tool replay left all seven run files byte-identical. Twelve verification files contained none of the four distinct known credential representations scanned. This is a bounded credential scan, not universal sensitive-data detection. See the [sanitized audit](verification/anthropic-release-v0.2.0-live-2026-11-14.json); raw runs remain local and ignored.
+- The earlier missing colors came from inherited `NO_COLOR=1`, which Crossterm honors independently of `color = true`. The local Chat launcher unsets it for its child process; the published binary and TOML were preserved. See the README's terminal color troubleshooting command.
+- Current source fixes ordinary composer submission during an active turn. Previously, Enter could record a correction, cancel the current turn, clear the draft, and leave the new request unsent. It now rejects the send before changing intent, preserves the exact draft, and keeps actionable guidance through journal updates and context inspection. After the turn stops, another explicit Enter sends it. Busy Rewire corrections also retain their `/continue` guidance. No automatic queue/retry, policy change, or journal schema change was introduced.
+- Final local `bash scripts/check.sh` passed on **macOS/aarch64, Rust 1.98.1**: formatting, all-target Clippy with warnings denied, **102 Rust tests** (50 library, 9 CLI, 10 configuration, 18 process, 10 provider, 5 runtime), doctest check with zero examples, binary build, seven release guard tests, and both native terminal journeys. A provider test also launches a filtered subprocess test; it is not counted twice. The terminal fixture now makes six loopback HTTP requests and one real harmless tool call. It verifies no journal mutation on a busy send, exact draft retention, guidance surviving completion/interruption, one explicit resend, persistent Rewire guidance, and existing Unicode/resize/history/cancellation behavior. These provider fixtures are mocked and separate from the live installed-release check above. New Linux/Windows hosted checks have not run.
+- The built source was launched as a local Chat preview with the existing Anthropic configuration and NORMAL policy. Its child environment has `NO_COLOR` unset, full effects and color enabled. A read-only TTY replay emitted 57 RGB commands including cyan and pink. The preview startup journal contained no model request. This verifies emitted terminal output and launch settings; native Terminal pixels were not inspected. The installed release and configuration hashes remain unchanged.
+- This reliability fix is **unreleased source work after v0.2.0**. This section records local validation before the commit and hosted CI; subsequent hosted results belong to the pull request's exact revision and Actions run. The installed release remains intact; use a source build to try the fix. Earlier hosted results below apply to their recorded commits, not these new changes.
+
+To try the current local source with the configured colors:
+
+```console
+cargo build --locked --bins
+env -u NO_COLOR ./target/debug/friendo --config friendo.toml --ui-mode chat run
+```
+
+The immediate focus is basic Chat reliability: sending, interruption, preserved drafts, visible failures, and inspection. The older PTY/debugger proposal below is deferred until these interactions are solid.
 
 ## Implemented
 
@@ -88,7 +107,7 @@ This is a narrow first usable version. It is not production-readiness evidence.
 - Journals retain at most 100,000 events / 64MiB serialized event content, with a 1MiB per-event cap. Artifacts have separate limits. UI folds bounded event prefixes and has not been profiled at those limits.
 - Review is implemented. Disk resume/rerun/fork, snapshot/rollback, process migration, distributed swarms, marketplace, discovery, and exactly-once external execution are unavailable.
 
-## Next bounded milestone
+## Later milestone (deferred)
 
 Tagged binary publication is defined by `.github/workflows/release.yml`: reuse passing native CI for the exact main-history tag, build only the application on four native targets, verify the extracted binaries and complete checksum set, then publish a staged release. [Release instructions](releases.md) record targets, OS baselines, contents, and maintenance commands. Release build execution is recorded by the corresponding GitHub Actions run; workflow configuration alone is not evidence of a published release.
 

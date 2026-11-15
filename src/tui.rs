@@ -69,6 +69,7 @@ pub struct View {
     pub repair: Option<String>,
     pub operation: usize,
     pub toast: String,
+    pub input_notice: String,
     pub effects: String,
     pub color: bool,
     pub phase: f64,
@@ -90,6 +91,13 @@ impl View {
             chat: mode == "chat",
             composer: (mode == "chat").then(String::new),
             ..Self::new()
+        }
+    }
+    fn notice(&self) -> &str {
+        if self.toast.is_empty() {
+            &self.input_notice
+        } else {
+            &self.toast
         }
     }
     fn nodes<'a>(&self, state: &'a State) -> Vec<&'a Node> {
@@ -300,10 +308,23 @@ async fn handle_key(
 ) -> Result<bool> {
     let composer = view.composer.clone();
     let repair = view.repair.clone();
+    let submitting = composer.is_some()
+        && mutable
+        && !view.inspect
+        && !view.help
+        && key.code == KeyCode::Enter
+        && !key.modifiers.contains(KeyModifiers::SHIFT);
+    if submitting {
+        view.input_notice.clear();
+        view.toast.clear();
+    }
     let result = handle_key_inner(view, key, state, events, runtime, mutable, dir).await;
-    if result.is_err() {
+    if let Err(error) = &result {
         view.composer = composer;
         view.repair = repair;
+        if submitting {
+            view.input_notice = sanitize(&format!("{error:#}"));
+        }
     }
     result
 }
@@ -457,6 +478,7 @@ async fn handle_key_inner(
             KeyCode::Enter => {
                 let r = runtime.context("review has no controller")?;
                 if let Some(text) = view.repair.take() {
+                    view.input_notice.clear();
                     let op = OPERATIONS[view.operation].1;
                     if op == "decompression" {
                         let ids: Vec<_> = state
@@ -502,7 +524,7 @@ async fn handle_key_inner(
                         if !r.busy() {
                             r.launch()?;
                         } else {
-                            view.toast="Correction durable. Current turn stopping; submit /continue after it stops.".into();
+                            view.input_notice = "Correction saved. After stop: /continue.".into();
                         }
                     }
                 } else if let Some(text) = view.composer.take() {
@@ -540,10 +562,9 @@ async fn handle_key_inner(
                     } else if text == "/continue" {
                         r.launch()?;
                     } else if !text.trim().is_empty() {
+                        anyhow::ensure!(!r.busy(), "Draft kept. Wait / Ctrl-C, then Enter.");
                         r.set_goal(&text, vec![])?;
-                        if !r.busy() {
-                            r.launch()?;
-                        }
+                        r.launch()?;
                     }
                 }
                 if view.chat {
@@ -1130,8 +1151,8 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
         format!("> {s}▏")
     } else if let Some(s) = &view.repair {
         format!("REWIRE > {s}▏")
-    } else if !view.toast.is_empty() {
-        view.toast.clone()
+    } else if !view.notice().is_empty() {
+        view.notice().into()
     } else if !state.receipt.is_empty() {
         state.receipt.clone()
     } else {
@@ -1139,7 +1160,9 @@ pub fn render(f: &mut Frame, state: &State, events: &[Event], view: &View) {
     };
     f.render_widget(
         Paragraph::new(sanitize(&prompt)).block(panel(
-            if view.composer.is_some() {
+            if view.composer.is_some() && !view.notice().is_empty() {
+                format!(" COMPOSER / {} ", view.notice())
+            } else if view.composer.is_some() {
                 " COMPOSER / Enter submit · Esc browse ".into()
             } else {
                 format!(" COMMAND BUS / i compose · {repair_key} Rewire · Ctrl-C interrupt ")
@@ -1504,6 +1527,90 @@ mod tests {
     use super::*;
     use crate::config::Config;
     use ratatui::backend::TestBackend;
+    #[tokio::test]
+    async fn busy_send_preserves_the_draft_and_authoritative_intent_in_both_modes() {
+        for mode in ["chat", "expert"] {
+            let root = tempfile::tempdir().unwrap();
+            let mut config = Config::default();
+            config.providers.clear();
+            let r = Runtime::new(root.path(), config, false).unwrap();
+            r.set_goal("active request", vec!["keep this constraint".into()])
+                .unwrap();
+            // This current-thread test does not yield to the worker until after
+            // handling Enter. No provider is configured or contacted.
+            r.launch().unwrap();
+            assert!(r.busy());
+            let events = r.store.lock().unwrap().events.clone();
+            let state = r.state();
+            let dir = r.store.lock().unwrap().dir.clone();
+            let mut view = View::for_mode(mode);
+            view.composer = Some("my next request café\nsecond line".into());
+            let result = handle_key(
+                &mut view,
+                KeyEvent::new(KeyCode::Enter, KeyModifiers::NONE),
+                &state,
+                &events,
+                Some(&r),
+                true,
+                &dir,
+            )
+            .await;
+            let after = r.store.lock().unwrap().events.clone();
+            r.shutdown().await.unwrap();
+            assert!(
+                result.is_err(),
+                "busy send must explain why it was not sent"
+            );
+            assert_eq!(
+                view.composer.as_deref(),
+                Some("my next request café\nsecond line")
+            );
+            assert_eq!(view.input_notice, "Draft kept. Wait / Ctrl-C, then Enter.");
+            if mode == "chat" {
+                for code in [KeyCode::F(5), KeyCode::Enter] {
+                    handle_key(
+                        &mut view,
+                        KeyEvent::new(code, KeyModifiers::NONE),
+                        &state,
+                        &events,
+                        Some(&r),
+                        true,
+                        &dir,
+                    )
+                    .await
+                    .unwrap();
+                }
+                assert!(!view.inspect);
+                assert_eq!(view.input_notice, "Draft kept. Wait / Ctrl-C, then Enter.");
+                assert_eq!(
+                    view.composer.as_deref(),
+                    Some("my next request café\nsecond line")
+                );
+            }
+            // Streaming journal updates clear transient toasts. Input feedback
+            // must remain visible beside the draft, including after F2.
+            view.toast.clear();
+            for width in [60, 140] {
+                let mut terminal = Terminal::new(TestBackend::new(width, 44)).unwrap();
+                terminal
+                    .draw(|frame| render(frame, &state, &events, &view))
+                    .unwrap();
+                let text = terminal
+                    .backend()
+                    .buffer()
+                    .content
+                    .iter()
+                    .map(|cell| cell.symbol())
+                    .collect::<String>();
+                assert!(text.contains("Draft kept. Wait / Ctrl-C, then Enter."));
+            }
+            assert_eq!(
+                serde_json::to_value(after).unwrap(),
+                serde_json::to_value(events).unwrap(),
+                "unsent input must not revise intent or cancel active work"
+            );
+        }
+    }
     #[tokio::test]
     async fn chat_correction_from_the_map_restores_draft_and_consistent_focus() {
         let root = tempfile::tempdir().unwrap();

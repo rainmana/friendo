@@ -1,0 +1,32 @@
+{
+  "date": "2026-11-14",
+  "platform": "macOS/aarch64",
+  "binary": "installed v0.2.0",
+  "binary_sha256": "3def8b6c657dd7fb7534ff18db4a7abb0a845b62574d3cd3b19baaf4f9ac5be6",
+  "run_id": "5df6d5a1-d31b-41b3-b826-fdd631609651",
+  "model": "claude-haiku-5-5",
+  "autonomy": "normal",
+  "journal_events": 56,
+  "journal_identity_sequence_causes": "passed",
+  "model_requests": 2,
+  "tools": 1,
+  "executable": "whoami",
+  "stdout": "alec\n",
+  "exit_code": 0,
+  "output_complete": true,
+  "failures": 0,
+  "native_continuation_match": true,
+  "exact_tool_result_context_match": true,
+  "replay_without_credential": [
+    "full",
+    "context",
+    "pretool"
+  ],
+  "replay_files_byte_identical": 7,
+  "known_credential_scan": {
+    "files": 12,
+    "unique_forms": 4,
+    "matches": 0
+  },
+  "scope": "One bounded live Anthropic tool loop; credential scan checks only known representations."
+}

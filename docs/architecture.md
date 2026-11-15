@@ -18,6 +18,8 @@ friendo is one Rust crate with a shared library, a CLI/TUI binary, and a small n
 
 `Event` uses schema version 1, UUID event/run IDs, branch ID `main`, per-run sequence, UTC timestamp, attributed source, causal event references, and a tagged payload. Branch identity is a seam; branching is not implemented. The source revision of the canonical MCW documents is recorded at run start.
 
+Unsent composer drafts and input feedback are presentation state. An ordinary send while a turn is active is rejected before changing intent or requesting cancellation; the exact draft stays editable until another explicit send. Input feedback survives journal-driven redraws and inspector closure. Explicit Rewire corrections still create revisions immediately and explain when `/continue` is needed after cancellation; they do not queue an automatic retry.
+
 The actual envelope includes:
 
 ```rust
@@ -43,7 +45,7 @@ OpenAI-compatible Chat Completions and Anthropic Messages use separate encoders/
 
 stdout and stderr drain concurrently into independently capped spool files and 16 KiB excerpt tails. Excess output is drained and counted, with truncation recorded. Known credential values are redacted before spooling; UI/model excerpts also remove control sequences. Incomplete pipe capture is visible in results. There is no terminal-sequence interpreter.
 
-Persistent sessions retain supervised native pipe processes across model turns and expose start/read/write/interrupt/wait/terminate. Initial snapshots/output artifacts are registered at start; `State.sessions` retains IDs/status for the next model turn. Shutdown records observed completion results. The initial timeout still applies. Ctrl-C cancels the active turn and interrupts retained sessions; targeted session operations remain available. Unix process groups and Windows job objects provide platform-specific descendant supervision. Native runtime evidence currently covers macOS; CI files do not establish Windows/Linux runtime behavior. Escaped/detached descendants and incomplete cleanup must not be presented as proven termination.
+Persistent sessions retain supervised native pipe processes across model turns and expose start/read/write/interrupt/wait/terminate. Initial snapshots/output artifacts are registered at start; `State.sessions` retains IDs/status for the next model turn. Shutdown records observed completion results. The initial timeout still applies. Ctrl-C cancels the active turn and interrupts retained sessions; targeted session operations remain available. Unix process groups and Windows job objects provide platform-specific descendant supervision. Recorded native CI covers Linux, macOS, and Windows for the published baseline; [build status](build-status.md) distinguishes those historical runs from current local validation. CI configuration alone is not runtime evidence. Escaped/detached descendants and incomplete cleanup must not be presented as proven termination.
 
 ## Corrections and repair
 
