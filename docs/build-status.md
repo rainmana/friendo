@@ -21,6 +21,18 @@ env -u NO_COLOR ./target/debug/friendo --config friendo.toml --ui-mode chat run
 
 The immediate focus is basic Chat reliability: sending, interruption, preserved drafts, visible failures, and inspection. The older PTY/debugger proposal below is deferred until these interactions are solid.
 
+## Chat reliability hosted verification — 2026-11-14
+
+Feature commit [`f960898`](https://github.com/rainmana/friendo/commit/f960898ec4a9a40b7de7359fcbd64695668dde31) passed [native verification run 43673666857](https://github.com/rainmana/friendo/actions/runs/43673666857) for [PR #1](https://github.com/rainmana/friendo/pull/1), with Rust 1.100.0 on all three native platforms. No CI failure or remediation was needed.
+
+| Platform | Executed result |
+| --- | --- |
+| Linux/x86_64 | Formatting, all-target Clippy, **102 Rust tests**, doctest check, binary build, seven release guards, and both terminal journeys passed. |
+| macOS/aarch64 | Native Clippy, **102 Rust tests**, binary build, and both terminal journeys passed. |
+| Windows/x86_64 MSVC | Native Clippy and **100 platform-specific Rust tests** passed, including the busy-send draft/intent regression. The Unix PTY helper does not run on Windows. |
+
+Both Unix terminal journeys verified the busy-send draft and persistent notice, explicit resend, Rewire guidance, Unicode input, mode switching, correction/cancellation, and read-only replay. Each live-mode fixture made six local HTTP requests and one harmless native tool call. Hosted provider tests use deterministic fixtures; they do not contact Anthropic. The separate installed-release live Anthropic evidence is recorded in the local checkpoint above. Credentials, generated runs, terminal captures, and index state were excluded from the feature commit.
+
 ## Implemented
 
 - Offline guided symbol-inventory demonstration, with every fixture view/export identified as synthetic. It reveals invocation/evidence, revises the goal to exported symbols, retains the original constraint and old evidence, opens Rewire, records delivery/interpretation/filter checks separately, and earns a conditional reconnection receipt.
