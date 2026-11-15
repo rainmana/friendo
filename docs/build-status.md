@@ -1,6 +1,12 @@
 # Build status — 2026-11-14
 
-The published baseline is **v0.2.0**, with Chat and Expert modes. It is installed on this Apple Silicon Mac. Native Rust/Ratatui application with a shared controller for TUI, headless model runs, and direct command execution. No model download, Node service, or Python service is needed for operation.
+This source prepares **v0.2.1**, containing the Chat reliability fixes merged in [PR #1](https://github.com/rainmana/friendo/pull/1). The previously published **v0.2.0** remains installed on this Apple Silicon Mac. Native Rust/Ratatui application with a shared controller for TUI, headless model runs, and direct command execution. No model download, Node service, or Python service is needed for operation.
+
+## v0.2.1 release checkpoint
+
+The version bump changes only the friendo package version in Cargo.toml/Cargo.lock; dependencies, journal schema, execution policy, and provider protocols are unchanged. Release notes describe the busy-send guard and persistent input/correction guidance. The local and hosted feature verification below applies to the tested Chat reliability code. Publication additionally requires native CI on the exact release commit, four native optimized packages with extracted-binary smoke checks, and complete source/checksum validation. The tag's GitHub Actions run and published assets record completion of those gates. No new v0.2.1 live-provider compatibility claim is made; the latest live Anthropic audit below exercised installed v0.2.0.
+
+The v0.2.1 local preflight passed on macOS/aarch64 with Rust 1.98.1: formatting, Clippy, 102 Rust tests, doctest check, binary build, seven release guards, and both terminal journeys. Python syntax validation and actionlint 1.7.12 passed. The optimized Apple Silicon package also passed extracted-binary version, offline NORMAL readiness, synthetic repair, and byte-preserving replay checks. Provider coverage in this preflight uses deterministic loopback fixtures; no hosted inference was performed for the version bump.
 
 ## Local verification checkpoint — 2026-11-14
 

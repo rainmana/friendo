@@ -10,7 +10,7 @@ This first slice includes a credential-free guided demo, OpenAI-compatible and n
 
 Prebuilt Linux, macOS (Apple Silicon/Intel), and Windows downloads are published on [GitHub Releases](https://github.com/rainmana/friendo/releases). See [release instructions](docs/releases.md) for platform baselines, SHA-256 verification, and package contents.
 
-These instructions describe v0.2.0 and current source builds, including the Chat/Expert presentation controls. v0.1.0 retains its original console. Publishing a new release does not replace an already installed binary.
+These instructions describe v0.2.1 and current source builds, including the Chat/Expert presentation controls. v0.1.0 retains its original console. Publishing a new release does not replace an already installed binary.
 
 Install a current stable Rust toolchain, then:
 
@@ -37,9 +37,9 @@ friendo replay <run-id> --context
 
 ## Chat and Expert
 
-friendo v0.2.0 defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
+Since v0.2.0, friendo defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
 
-Current source builds preserve an unsent draft when you press **Enter** during an active turn. Wait for the turn to finish, or press **Ctrl-C** to interrupt it, then press **Enter** again to send. The explanation stays visible through progress updates and context inspection. This fix is unreleased source work after v0.2.0; the published v0.2.0 binary does not include it.
+In v0.2.1, pressing **Enter** during an active turn preserves the unsent draft without changing intent or canceling work. Wait for the turn to finish, or press **Ctrl-C** to interrupt it, then press **Enter** again to send. The explanation stays visible through progress updates and opening or closing context inspection. Explicit Rewire corrections still apply immediately and retain their `/continue` guidance while the previous turn stops. These reliability fixes also apply to Expert's composer; v0.2.0 does not include them.
 
 Use **F2** to switch between Chat and the existing **Expert** console, or start directly with `friendo --ui-mode expert run`. The setting `ui_mode = "chat"` or `"expert"` chooses the initial presentation independently of `layout`, NORMAL/YOLO, and execution admission. Switching modes preserves the run, journal, draft, active work, and historical position; it does not dispatch work or change policy.
 
