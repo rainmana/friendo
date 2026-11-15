@@ -232,8 +232,8 @@ class Provider(HTTPServer):
         super().__init__(("127.0.0.1", 0), Handler)
         self.requests = []
         self.errors = []
-        self.held = {count: threading.Event() for count in (3, 4)}
-        self.release = {count: threading.Event() for count in (3, 4)}
+        self.held = {count: threading.Event() for count in (3, 4, 5)}
+        self.release = {count: threading.Event() for count in (3, 4, 5)}
 
 
 def delta(value, finish=None):
@@ -260,6 +260,11 @@ class Handler(BaseHTTPRequestHandler):
             elif count in (3, 4):
                 # A held real HTTP stream gives correction and Ctrl-C a deterministic target.
                 response = delta({"content": f"PTY_HELD_STREAM_{count}"})
+            elif count == 5:
+                # Finish only when released, after a busy submission has been rejected.
+                response = delta({"content": "PTY_BUSY_COMPLETE"})
+            elif count == 6:
+                response = delta({"content": "PTY_BUSY_SENT"}) + delta({}, "stop") + "data: [DONE]\n\n"
             else:
                 raise AssertionError("unexpected extra model request")
             self.send_response(200)
@@ -269,9 +274,12 @@ class Handler(BaseHTTPRequestHandler):
             for offset in range(0, len(response), 17):
                 self.wfile.write(response[offset:offset + 17].encode())
                 self.wfile.flush()
-            if count in (3, 4):
+            if count in self.server.held:
                 self.server.held[count].set()
                 assert self.server.release[count].wait(20), "held response was never released"
+                if count == 5:
+                    self.wfile.write((delta({}, "stop") + "data: [DONE]\n\n").encode())
+                    self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             pass  # Cancellation closes the deliberately unfinished third response.
         except Exception as error:
@@ -380,11 +388,61 @@ model = 'explicit-terminal-fixture'
         terminal.send(b"\x1b[200~ corrected\x1b[201~\r")
         terminal.event("correction", lambda e: e["revision"] == 4)
         terminal.event("failure")
+        terminal.screen("Correction saved. After stop: /continue.")
         server.release[3].set()
         terminal.compose("/continue")
         terminal.wait(server.held[4].is_set, "held fixture stream for Ctrl-C")
+        before_stop = len(terminal.events())
         terminal.send(b"\x03")
         terminal.event("cancel_requested", lambda e: e["reason"] == "Ctrl-C")
+        terminal.wait(lambda: any(e["kind"]["type"] == "failure" for e in terminal.events()[before_stop:]),
+                      "held Ctrl-C turn to stop")
+        server.release[4].set()
+
+        # A normal Chat send while busy must not become an implicit correction/cancellation.
+        start = len(terminal.text)
+        terminal.send(b"\x1bOQ")
+        terminal.screen("CHAT /", start)
+        active_goal = "Keep this task active until the fixture completes."
+        draft = "Send this preserved café draft exactly once."
+        terminal.send(b"\x1b[200~" + active_goal.encode() + b"\x1b[201~\r")
+        terminal.wait(server.held[5].is_set, "held fixture stream for busy Chat submission")
+        before_busy_send = terminal.events()
+        start = len(terminal.text)
+        terminal.send(b"\x1b[200~" + draft.encode() + b"\x1b[201~\r")
+        notice = "Draft kept. Wait / Ctrl-C, then Enter."
+        terminal.wait(lambda: notice in terminal.screen_state.text() or terminal.events() != before_busy_send,
+                      "busy Chat submission to be handled")
+        assert terminal.events() == before_busy_send, "busy submission revised or canceled the active task"
+        terminal.screen(notice, start)
+        terminal.screen(draft)
+        assert len(server.requests) == 5, "busy submission dispatched another request"
+        assert json.loads(server.requests[4]["messages"][1]["content"])["exact_user_statement"] == active_goal
+
+        # The notice remains after new authoritative events and after an explicit interrupt.
+        start = len(terminal.text)
+        server.release[5].set()
+        terminal.event("model_finished", lambda e: e["text"] == "PTY_BUSY_COMPLETE")
+        terminal.screen(notice, start)
+        before_interrupt = len(terminal.events())
+        start = len(terminal.text)
+        terminal.send(b"\x03")
+        terminal.wait(lambda: any(e["kind"]["type"] == "cancel_requested"
+                                 for e in terminal.events()[before_interrupt:]), "explicit Chat interruption")
+        terminal.screen(notice, start)
+        terminal.screen(draft)
+        terminal.send(b"\r")
+        terminal.event("model_finished", lambda e: e["text"] == "PTY_BUSY_SENT")
+        terminal.screen("PTY_BUSY_SENT")
+        assert len(server.requests) == 6, "explicit draft submission was lost or duplicated"
+        assert json.loads(server.requests[5]["messages"][1]["content"])["exact_user_statement"] == draft
+        submitted = [e["kind"] for e in terminal.events()
+                     if e["kind"]["type"] == "correction" and e["kind"].get("statement") == draft]
+        assert len(submitted) == 1 and submitted[0]["revision"] == 6, "draft was not submitted exactly once"
+        assert notice not in terminal.screen_state.text(), "accepted submission left stale busy guidance"
+        start = len(terminal.text)
+        terminal.send(b"\x1b")  # Observe browse focus before q; adjacent bytes can encode Alt-q.
+        terminal.screen("COMPOSER / i type", start)
         terminal.finish()
         events = terminal.events()
         assert not any(e["kind"]["type"] == "model_finished" and e["kind"].get("text", "").startswith("PTY_HELD_STREAM") for e in events)
@@ -395,10 +453,10 @@ model = 'explicit-terminal-fixture'
                                 check=True, capture_output=True, timeout=15)
         state = json.loads(replay.stdout)
         assert state["constraints"] == ["Preserve original evidence"]
-        assert state["revision"] == 4 and state["autonomy"] == "yolo"
+        assert state["revision"] == 6 and state["autonomy"] == "yolo"
         for request in server.requests[2:]:
             assert json.loads(request["messages"][1]["content"])["explicit_constraints"] == state["constraints"]
-        assert len(server.requests) == 4 and not server.errors, server.errors
+        assert len(server.requests) == 6 and not server.errors, server.errors
     finally:
         for release in server.release.values():
             release.set()
@@ -429,8 +487,9 @@ model = 'explicit-terminal-fixture'
         review.close()
     after_files = {path: path.read_bytes() for path in terminal.runs.rglob("*") if path.is_file()}
     assert after_files == before_files, "standalone mode switches/review changed retained run files"
-    return {"live_fixture": "passed", "model_requests": 4, "real_tools": 1,
+    return {"live_fixture": "passed", "model_requests": 6, "real_tools": 1,
             "unicode_paste": "passed", "chat_focus_and_mode_switch": "passed",
+            "busy_send_draft_and_notice": "passed",
             "read_only_modes": "passed", "correction_cancel": "passed", "capture": str(terminal.capture)}
 
 

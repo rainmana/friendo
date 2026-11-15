@@ -657,6 +657,11 @@ fn correction_editor(f: &mut Frame, state: &State, view: &View, correction: &str
 
 fn composer(f: &mut Frame, area: Rect, state: &State, view: &View) {
     let reviewing = view.read_only || view.review.is_some();
+    let notice = if reviewing {
+        view.toast.as_str()
+    } else {
+        view.notice()
+    };
     let title = if reviewing {
         " COMPOSER / READ-ONLY REVIEW "
     } else if view.composer.is_some() {
@@ -671,8 +676,8 @@ fn composer(f: &mut Frame, area: Rect, state: &State, view: &View) {
         "History is read-only. F2 changes presentation; no actions rerun.".into()
     } else if let Some(text) = &view.composer {
         format!("› {}▏", sanitize(text))
-    } else if !view.toast.is_empty() {
-        sanitize(&view.toast)
+    } else if !notice.is_empty() {
+        sanitize(notice)
     } else if !view.draft.is_empty() {
         format!("DRAFT / {}  · i to edit", sanitize(&view.draft))
     } else if !state.receipt.is_empty() {
@@ -685,7 +690,7 @@ fn composer(f: &mut Frame, area: Rect, state: &State, view: &View) {
     };
     let lines = wrap_lines(text_lines(&text, WHITE), inner.width);
     let notice_height = usize::from(
-        !view.toast.is_empty() && (view.composer.is_some() || reviewing) && inner.height > 1,
+        !notice.is_empty() && (view.composer.is_some() || reviewing) && inner.height > 1,
     );
     let start = lines
         .len()
@@ -693,7 +698,7 @@ fn composer(f: &mut Frame, area: Rect, state: &State, view: &View) {
     let mut visible = Vec::new();
     if notice_height > 0 {
         visible.extend(
-            wrap_lines(text_lines(&format!("! {}", view.toast), AMBER), inner.width)
+            wrap_lines(text_lines(&format!("! {notice}"), AMBER), inner.width)
                 .into_iter()
                 .take(1),
         );

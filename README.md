@@ -39,6 +39,8 @@ friendo replay <run-id> --context
 
 friendo v0.2.0 defaults to **Chat**, with a focused composer, attributed conversation cards, command/results, and a live map. Run `friendo run` without a goal to start typing; opening the interface alone does not contact a model. **Enter** submits. Ordinary letters, including **q**, **y**, and **r**, are literal text while composing. **Esc** leaves input for browsing, and **i** returns to it. Pasting preserves Unicode and newlines.
 
+Current source builds preserve an unsent draft when you press **Enter** during an active turn. Wait for the turn to finish, or press **Ctrl-C** to interrupt it, then press **Enter** again to send. The explanation stays visible through progress updates and context inspection. This fix is unreleased source work after v0.2.0; the published v0.2.0 binary does not include it.
+
 Use **F2** to switch between Chat and the existing **Expert** console, or start directly with `friendo --ui-mode expert run`. The setting `ui_mode = "chat"` or `"expert"` chooses the initial presentation independently of `layout`, NORMAL/YOLO, and execution admission. Switching modes preserves the run, journal, draft, active work, and historical position; it does not dispatch work or change policy.
 
 The **Understanding** panel distinguishes recorded user intent, model-reported interpretation, observed tool evidence, unresolved conflicts, and status. Earlier answers/evidence can remain visible with stale markers after a correction. These are attributed records; the panel does not infer private hidden reasoning, certainty, shared understanding, or an unrecorded plan. Streaming preview remains separate from retained completed responses. A historical tool without completion evidence has **outcome unknown**.
@@ -133,6 +135,8 @@ The `session` model tool supports `start`, `read`, `write`, `interrupt`, `wait`,
 | `?`, `Ctrl-C`, `q` | Help, interrupt, quit |
 
 Effects support `off`, `reduced`, `full` (default), and `overdrive`: `friendo --effects off --no-color demo`. The configured frame budget defaults to 30 FPS; no benchmark claim is made. Expert windows narrower than 90 columns use the list alternative, and the footer/help show active bindings. The source build supports system prompt, provider options, turn/tool limits, initial UI mode, layout, effects/color/FPS, and remaps for repair/YOLO/trace/pin. CLI values override file values, then defaults. File changes apply to the next run; direct YOLO changes apply at the next dispatch. Older TOML files without `ui_mode` default to Chat in the new build. Keep `ui_mode` out of a configuration still shared with published v0.1.0, which rejects unknown fields; select the new presentation with CLI/defaults until that older binary is no longer using the file. Full keymap, workflow, and automated context-rule editors are not implemented.
+
+If the interface is monochrome despite `color = true`, check whether the launch environment sets `NO_COLOR` to a nonempty value. Crossterm honors that variable independently of the TOML setting. On macOS/Linux, `env -u NO_COLOR friendo --ui-mode chat run` enables the configured palette for that process. An explicit `--no-color` still selects monochrome.
 
 ## Records, privacy, and review
 
